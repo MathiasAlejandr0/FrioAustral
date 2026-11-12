@@ -3,7 +3,19 @@
 .env.*.local
 node_modules
 .vercel
+supabase/.temp
 Thumbs.db
 .DS_Store
+# Videos: solo versiones optimizadas de menos de ~5 MB van a git.
+# Los originales/RAW y las variantes más pesadas (v1-hero-intro-1080.mp4 5,3 MB,
+# v2-curso-ac-1080.mp4 7,7 MB) quedan fuera; para servirlas, súbelas a un hosting
+# externo y apunta window.FA_MEDIA_BASE (assets/media.js).
 *.mp4
 *.webm
+*.mov
+!media/video/v1-hero-intro-720.mp4
+!media/video/v1-hero-intro-720.webm
+!media/video/v1-hero-intro-1080.webm
+!media/video/v2-curso-ac-720.mp4
+!media/video/v2-curso-ac-720.webm
+!media/video/v2-curso-ac-1080.webm
