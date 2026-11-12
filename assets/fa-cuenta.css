@@ -1,0 +1,59 @@
+/* Mi cuenta + panel del equipo + modal de suscripción (estilo v5, oscuro premium) */
+.fa-auth{max-width:440px;margin:0 auto;padding:28px;border:1px solid var(--line);display:grid;gap:14px}
+.fa-auth h2{font-family:var(--disp);text-transform:uppercase;font-size:clamp(28px,5vw,40px);line-height:1;margin:0}
+.fa-auth form{display:grid;gap:12px}
+.fa-auth label,.fa-box label{display:grid;gap:6px;font-size:14px;color:var(--mut)}
+.fa-auth input,.fa-box input,.fa-eq-list input,.fa-input textarea,.fa-input input,.fa-inline select{background:rgba(255,255,255,.05);border:1px solid var(--line);color:#fff;padding:12px;font:inherit;border-radius:10px}
+.fa-inline select{padding:8px 10px}
+.fa-inline select option{background:var(--ink)}
+.fa-input textarea{flex:1;min-width:0;resize:vertical;min-height:48px}
+.fa-flow-err{color:#ff7b75;margin:0;font-size:14px}
+.fa-flow-err[hidden]{display:none}
+.fa-linkbtn{background:none;border:0;color:var(--ice);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
+.fa-sub-note{font-size:14px;color:var(--mut);margin:0}
+.fa-cta-msg{padding:12px 16px;border:1px solid var(--line);border-radius:12px;margin:0 0 16px;font-size:15px}
+.fa-cta-msg.ok{border-color:rgba(126,226,168,.45);color:#bff3d4;background:rgba(126,226,168,.07)}
+.fa-cta-msg.bad{border-color:rgba(255,123,117,.45);color:#ffc2bf;background:rgba(255,123,117,.07)}
+.fa-cta-msg.warn{border-color:rgba(255,196,87,.4);color:#ffe0a3;background:rgba(255,196,87,.06);font-size:13px}
+.fa-warn{color:#ffc457}
+.fa-pill{border-radius:999px;white-space:nowrap;display:inline-block}
+.fa-acc-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.fa-acc-head h2{font-family:var(--disp);text-transform:uppercase;font-size:clamp(30px,5vw,48px);line-height:1;margin:4px 0}
+.fa-acc-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:22px}
+@media (max-width:879px){.fa-acc-grid{grid-template-columns:1fr}}
+.fa-card{padding:22px;border:1px solid var(--line);border-radius:var(--r,20px);display:grid;gap:12px;align-content:start}
+.fa-plancard h3{font-family:var(--disp);text-transform:uppercase;font-size:clamp(28px,4vw,38px);margin:2px 0;line-height:1}
+.fa-plancard h3 small{font-family:var(--body);font-size:15px;color:var(--mut);text-transform:none;font-weight:600}
+.fa-plan-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.fa-dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:0}
+.fa-dl dt{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.fa-dl dd{margin:4px 0 0;font-weight:700}
+.fa-actions{flex-wrap:wrap;gap:8px;align-items:center}
+.fa-inline{display:flex;gap:8px;align-items:center;font-size:14px;color:var(--mut)}
+.fa-danger{color:#ff9d98!important;border-color:rgba(255,123,117,.4)!important}
+.fa-quota b{font-family:var(--disp);font-size:clamp(30px,4vw,42px);text-transform:uppercase;line-height:1}
+.fa-quota small{color:var(--mut)}
+.fa-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+.fa-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--red))}
+.fa-pane{padding:18px;border:1px solid var(--line)}
+.fa-pane[hidden]{display:none}
+.fa-chat .fa-u{align-self:flex-end;background:rgba(224,25,31,.14);border:1px solid rgba(224,25,31,.35);border-radius:16px 16px 4px 16px}
+.fa-chat .fa-a{align-self:flex-start;background:rgba(79,208,245,.08);border:1px solid rgba(79,208,245,.25);border-radius:16px 16px 16px 4px}
+.fa-block{padding:12px 14px;border:1px dashed var(--line);border-radius:12px;color:var(--mut);margin-bottom:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.fa-paytab td,.fa-paytab th{font-size:14px}
+.fa-q{padding:14px 0;border-bottom:1px solid var(--line)}
+.fa-q p{margin:6px 0 4px;color:var(--snow)}
+.fa-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.fa-kpis b{font-family:var(--disp);font-size:40px;line-height:1}
+@media (max-width:640px){.fa-kpis{grid-template-columns:1fr}}
+.fa-eq{display:grid;grid-template-columns:340px 1fr;gap:16px}
+@media (max-width:879px){.fa-eq{grid-template-columns:1fr}}
+.fa-eq-list ul{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:60vh;overflow:auto}
+.fa-eq-list li button{width:100%;text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--line);color:#fff;padding:10px 12px;border-radius:12px;font:inherit;cursor:pointer;display:grid;gap:4px;position:relative}
+.fa-eq-list li button.on{border-color:var(--red);background:rgba(224,25,31,.08)}
+.fa-eq-list li button small{color:var(--mut)}
+.fa-eq-list .fa-tabs{flex-wrap:wrap;margin:0}
+.fa-eq-list .fa-tabs button{border:1px solid var(--line);padding:6px 10px;font-size:13px;border-radius:99px}
+.fa-badge-n{position:absolute;right:10px;top:10px;background:var(--red);color:#fff;border-radius:99px;font-size:12px;padding:1px 8px;font-weight:800}
+.fa-pays summary{cursor:pointer;color:var(--mut)}
+.fa-pays .fa-row{justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)}

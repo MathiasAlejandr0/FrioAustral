@@ -12,43 +12,7 @@ const $=s=>document.querySelector(s);
 const bubbles=(m,who)=>m.map(x=>`<div class="fa-m ${x.de===who?'fa-u':'fa-a'}">${esc(x.t)}<small>${x.de==='u'?'Suscriptor':'Frío Austral'} · ${new Date(x.f).toLocaleString('es-CL')}</small></div>`).join('')||'<p class="fa-ej mono">Sin mensajes todavía.</p>';
 const page=document.body.dataset.fa;
 
-if(page==='planes'){
- let plan; const m=$('#faModal');
- document.querySelectorAll('.fa-sub').forEach(b=>b.onclick=()=>{plan=b.dataset.plan;$('#faPlanName').textContent=PN[plan];m.hidden=false});
- m.querySelector('[data-close]').onclick=()=>m.hidden=true;
- $('#faSubForm').onsubmit=e=>{e.preventDefault();const f=new FormData(e.target),d=db();
-  let s=d.subs.find(x=>x.email===f.get('email'));
-  if(!s){s={id:'s'+Date.now(),nombre:f.get('nombre'),email:f.get('email'),usadas:0,msgs:[]};d.subs.push(s)}
-  s.plan=plan;s.estado='activa';s.usadas=0;d.me=s.id;save(d);location.href='consultas.html'};
-}
-
-if(page==='consultas'){
- const render=()=>{const d=db(),s=d.subs.find(x=>x.id===d.me);
-  $('#faNoUser').hidden=!!s;$('#faApp').hidden=!s;if(!s)return;
-  const lim=LIM[s.plan],act=s.estado==='activa',left=lim===Infinity?'Ilimitadas':Math.max(0,lim-s.usadas);
-  $('#faUName').textContent=s.nombre;$('#faUPlan').textContent=PN[s.plan];
-  const st=$('#faUState');st.textContent=act?'Activa':'Vencida / impaga';st.className='fa-pill '+(act?'fa-ok':'fa-bad');
-  $('#faLeft').textContent='Preguntas restantes: '+left+(lim===Infinity?'':' de '+lim);
-  $('#faChat').innerHTML=bubbles(s.msgs,'u');$('#faChat').scrollTop=1e6;
-  let blk='';
-  if(!act)blk='Tu suscripción no está activa. Renueva tu plan para seguir haciendo preguntas.<br><a class="btn btn-red btn-sm" href="planes.html">Renovar suscripción</a>';
-  else if(left===0)blk='Usaste tus 3 preguntas del mes del plan Consulta. Pásate al plan Ilimitado para preguntar sin tope.<br><a class="btn btn-red btn-sm" href="planes.html">Ver planes</a>';
-  $('#faBlock').innerHTML=blk;$('#faBlock').hidden=!blk;
-  $('#faMsg').disabled=!!blk;$('#faForm button').disabled=!!blk;
-  const prem=s.plan==='premium';$('#faTabCom').hidden=!prem;
-  if(!prem)show('chat');
-  $('#faCom').innerHTML=d.subs.filter(x=>x.id!==s.id).flatMap(x=>{const o=[];x.msgs.forEach((m,i)=>{if(m.de==='u'){const r=x.msgs.slice(i+1).find(y=>y.de==='a');if(r)o.push(`<div class="fa-q"><b>${esc(m.t)}</b><p>${esc(r.t)}</p></div>`)}});return o}).join('')||'<p>Aún no hay preguntas respondidas.</p>';
- };
- const show=t=>{document.querySelectorAll('.fa-tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));document.querySelectorAll('.fa-pane').forEach(p=>p.hidden=p.dataset.pane!==t)};
- document.querySelectorAll('.fa-tabs button').forEach(b=>b.onclick=()=>show(b.dataset.tab));
- $('#faForm').onsubmit=e=>{e.preventDefault();const d=db(),s=d.subs.find(x=>x.id===d.me),t=$('#faMsg').value.trim();
-  if(!t||s.estado!=='activa'||s.usadas>=LIM[s.plan])return render();
-  s.msgs.push({de:'u',t,f:now()});s.usadas++;save(d);$('#faMsg').value='';render()};
- $('#faToggleState').onclick=()=>{const d=db(),s=d.subs.find(x=>x.id===d.me);s.estado=s.estado==='activa'?'vencida':'activa';save(d);render()};
- $('#faLogout').onclick=()=>{const d=db();d.me=null;save(d);render()};
- if(!db().me){const d=db();save(d)} render();
- window.addEventListener('storage',render);
-}
+/* planes.html y Mi cuenta usan datos reales: assets/fa-flow.js y assets/fa-cuenta.js */
 
 if(page==='admin'){
  let sel=null;const SK='fa_admin_session';

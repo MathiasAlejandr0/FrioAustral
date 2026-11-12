@@ -44,7 +44,23 @@
     a.style.display = "none";
   }
 
+  /* Enlace "Mi cuenta" (panel del suscriptor) en el menú y el drawer de todas las páginas. */
+  function addAccountLink() {
+    const url = C.ACCOUNT_URL || "mi-cuenta.html";
+    document.querySelectorAll(".nav-links, .drawer").forEach((nav) => {
+      if (nav.querySelector('a[href="' + url + '"]')) return;
+      const a = document.createElement("a");
+      a.href = url;
+      a.textContent = "Mi cuenta";
+      a.className = "fa-nav-cuenta";
+      if (file === url) { a.classList.add("on"); a.setAttribute("aria-current", "page"); }
+      const before = nav.classList.contains("drawer") ? nav.querySelector(".btn") : null;
+      nav.insertBefore(a, before);
+    });
+  }
+
   function apply() {
+    addAccountLink();
     if (enabled) return;
     document.querySelectorAll("a[href]").forEach((a) => {
       if (isBuyCta(a)) {
