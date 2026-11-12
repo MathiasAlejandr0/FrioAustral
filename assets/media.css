@@ -1,0 +1,147 @@
+/* Frío Austral v5 · medios nuevos (sin filtros sobre las fotos) */
+picture{display:block}
+/* Hero: poster P1 (LCP) bajo el video V1 */
+.hero .ph-img.fa-hero-media{background:#05070b!important}
+.hero .fa-hero-poster,.hero .fa-hero-poster img{position:absolute;inset:0;width:100%;height:100%}
+.hero .fa-hero-poster img{object-fit:cover;object-position:50% 22%}
+.hero .ph-img.fa-hero-media video.hero-vid{position:absolute;inset:0;opacity:0;transition:opacity .6s;object-position:50% 22%!important}
+.hero .ph-img.fa-playing video.hero-vid{opacity:1}
+@media(min-width:880px){.hero .fa-hero-poster img,.hero .ph-img.fa-hero-media video.hero-vid{object-position:62% 30%!important}}
+.hero video.hero-vid::cue{background:rgba(5,7,11,.78);color:#fff;font-size:15px}
+.fa-cap{position:absolute;z-index:2;left:50%;transform:translateX(-50%);width:min(92%,560px);margin:0;padding:6px 12px;border-radius:10px;background:rgba(5,7,11,.8);color:#fff;font:600 14px/1.4 Manrope,system-ui,sans-serif;text-align:center;opacity:0;transition:opacity .2s;pointer-events:none}
+.fa-cap.on{opacity:1}
+@media(min-width:880px){.fa-cap{left:auto;right:32px;transform:none;width:min(40%,520px);top:auto;bottom:24px;font-size:16px}}
+/* Tarjeta curso (index): P3 */
+.cgrid .cmain .m .fa-pic-c{display:contents}
+.cgrid .cmain .m img.cm-foto{aspect-ratio:auto!important;object-position:50% 45%!important}
+/* Cursos: V2 + galería P4-P7 */
+.fa-v2 video{aspect-ratio:16/9;background:#05070b}
+.fa-v2 video::cue{background:rgba(5,7,11,.8);color:#fff}
+.fa-cgal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 14px}
+.fa-cgal img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.1)}
+@media(max-width:879px){.fa-cgal{grid-template-columns:1fr 1fr}}
+/* Taller: servicios P8/P9 + apoyo P10 + nosotros P2 + galería vertical P11/P12 */
+.services li{align-items:center}
+.services li>div{flex:1}
+.fa-svc-pic{flex:none;width:132px}
+.fa-svc-pic img{width:100%;height:auto;aspect-ratio:16/10;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.12)}
+@media(max-width:479px){.fa-svc-pic{width:96px}}
+.gpic picture,.gpic picture img{width:100%;height:100%}
+.gpic img{object-fit:cover;object-position:22% 35%!important}
+.fa-nos{margin:24px 0 0;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.fa-nos img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:50% 40%}
+@media(max-width:879px){.fa-nos img{aspect-ratio:4/3}}
+.v5-gal.fa-gal6{grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-template-rows:260px 260px!important}
+.v5-gal.fa-gal6>*{grid-row:auto!important;grid-column:auto!important;min-height:0}
+.v5-gal.fa-gal6>picture{grid-row:span 2!important}
+.v5-gal.fa-gal6 picture img{width:100%;height:100%;object-fit:cover;object-position:50% 50%;border-radius:16px}
+.v5-gal.fa-gal6 img{object-position:50% 50%}
+@media(max-width:879px){.v5-gal.fa-gal6{grid-template-columns:1fr 1fr!important;grid-template-rows:auto 160px 160px!important}
+ .v5-gal.fa-gal6>picture{grid-row:auto!important}.v5-gal.fa-gal6>picture img{aspect-ratio:9/16;height:auto}}
+/* CTA final: P13 con overlay oscuro para contraste AA */
+.v5-cta.fa-cta-media{position:relative;overflow:hidden;isolation:isolate;padding:120px 0}
+.fa-cta-bg,.fa-cta-bg img{position:absolute;inset:0;width:100%;height:100%;z-index:-2}
+.fa-cta-bg img{object-fit:cover;object-position:62% 35%}
+.v5-cta.fa-cta-media::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(5,7,11,.92) 0%,rgba(5,7,11,.66) 45%,rgba(5,7,11,.92) 100%)}
+@media(max-width:879px){.fa-cta-bg img{object-position:66% 30%}}
+@media(prefers-reduced-motion:reduce){.hero .ph-img.fa-hero-media video.hero-vid{display:none}}
+/* V2 a lo ancho, arriba de la ficha y el temario */
+.cmain:has(.fa-v2){grid-template-columns:1fr!important}
+.cmain .m.fa-v2{aspect-ratio:16/9!important;min-height:0!important;max-height:none!important;height:auto}
+.cmain .m.fa-v2 video{object-fit:contain;height:100%}
+/* CTA final: foto más visible, título a la izquierda sin tapar la cara */
+.v5-cta.fa-cta-media{text-align:left;padding:150px 0;border-top:0}
+.v5-cta.fa-cta-media h2{margin:0 0 26px;max-width:12ch}
+.v5-cta.fa-cta-media::before{background:linear-gradient(90deg,rgba(5,7,11,.9) 0%,rgba(5,7,11,.6) 38%,rgba(5,7,11,.08) 62%,rgba(5,7,11,0) 100%),linear-gradient(180deg,rgba(5,7,11,.45) 0%,rgba(5,7,11,0) 22%,rgba(5,7,11,0) 78%,rgba(5,7,11,.55) 100%)}
+.fa-cta-bg img{object-position:60% 30%}
+@media(max-width:879px){
+.v5-cta.fa-cta-media{padding:min(92vw,420px) 0 48px}
+.fa-cta-bg img{object-position:82% 0%;height:74%;bottom:auto}
+.v5-cta.fa-cta-media::before{background:linear-gradient(180deg,rgba(5,7,11,0) 0%,rgba(5,7,11,0) 48%,rgba(5,7,11,.7) 64%,#05070b 74%)}
+}
+/* ===== Plan de medios completo (feat/media-sitio-completo) ===== */
+/* I1: botón Activar sonido */
+.fa-sound{position:absolute;z-index:5;right:32px;top:96px;display:inline-flex;align-items:center;gap:8px;padding:10px 16px;border-radius:999px;border:1.5px solid rgba(255,255,255,.35);background:rgba(5,7,11,.62);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);color:#fff;font:700 14px/1 Manrope,system-ui,sans-serif;cursor:pointer;transition:background .2s,border-color .2s}
+.fa-sound:hover{background:rgba(5,7,11,.85);border-color:var(--cyan,#4fd0f5)}
+.fa-sound:focus-visible{outline:2px solid var(--cyan,#4fd0f5);outline-offset:3px}
+.fa-sound svg{width:20px;height:20px}
+.fa-sound .w1,.fa-sound .w2{display:none}
+.fa-sound[aria-pressed="true"] .w1,.fa-sound[aria-pressed="true"] .w2{display:inline}
+.fa-sound[aria-pressed="true"] .x{display:none}
+.fa-sound[hidden]{display:none}
+@media(max-width:879px){.fa-sound{top:78px;right:12px;padding:9px 13px;font-size:13px}}
+@media(prefers-reduced-motion:reduce){.fa-sound{display:none!important}}
+.hero .fa-hero-poster img,.hero .ph-img.fa-hero-media video.hero-vid{object-position:50% 30%!important}
+@media(min-width:880px){.hero .fa-hero-poster img,.hero .ph-img.fa-hero-media video.hero-vid{object-position:62% 40%!important}}
+/* I4: una sola foto, 1:1 en celular */
+.cgrid .cmain .m picture,.cgrid .cmain .m picture img{width:100%;height:100%}
+.cgrid .cmain .m img{object-fit:cover!important;object-position:50% 45%!important;background:#05070b}
+/* I6: foto del taller en lugar del video */
+.tcard .m picture.fa-tpic,.tcard .m picture.fa-tpic img{width:100%;height:100%}
+.tcard .m picture.fa-tpic img{object-fit:cover;object-position:30% 40%!important}
+@media(min-width:880px){.tcard .m{aspect-ratio:9/8!important;min-height:0!important}}
+@media(max-width:879px){.tcard .m picture.fa-tpic img{object-position:25% 35%!important}}
+/* I7/T7: fondo del mapa (detrás del iframe) */
+.fa-map-frame,.map{background:#0a1622 url(../media/img/i7-mapa-960.webp) 50% 55%/cover no-repeat;background-image:linear-gradient(rgba(5,7,11,.8),rgba(5,7,11,.8)),image-set(url(../media/img/i7-mapa-960.webp) type("image/webp") 1x,url(../media/img/i7-mapa-1600.webp) type("image/webp") 2x)}
+/* I9: CTA final (A/C) */
+.fa-cta-bg img{object-position:60% 50%!important}
+@media(max-width:879px){.fa-cta-bg img{object-position:60% 50%!important}}
+/* Encabezados con foto (C1, T1, P1, G1, M1) */
+.phead.fa-ph{background-color:#05070b;background-repeat:no-repeat;background-size:cover}
+.phead.fa-ph::before{background:linear-gradient(90deg,rgba(5,7,11,.85) 0%,rgba(5,7,11,.7) 40%,rgba(5,7,11,.2) 100%),linear-gradient(180deg,rgba(5,7,11,.5) 0,rgba(5,7,11,0) 30%,rgba(5,7,11,0) 80%,#05070b 100%)!important}
+@media(max-width:879px){.phead.fa-ph::before{background:linear-gradient(180deg,rgba(5,7,11,.55) 0%,rgba(5,7,11,.78) 45%,rgba(5,7,11,.92) 100%)!important}}
+.fa-ph-c1{background-position:70% 40%;background-image:image-set(url(../media/img/c1-phead-d-1600.webp) type("image/webp"))}
+.fa-ph-t1{background-position:60% 35%;background-image:image-set(url(../media/img/t1-phead-d-1600.webp) type("image/webp"))}
+.fa-ph-p1{background-position:65% 30%;background-image:image-set(url(../media/img/p1-phead-d-1600.webp) type("image/webp"))}
+.fa-ph-g1{background-position:65% 30%;background-image:image-set(url(../media/img/g1-phead-d-1600.webp) type("image/webp"))}
+.fa-ph-m1{background-position:70% 35%;background-image:image-set(url(../media/img/m1-phead-d-1600.webp) type("image/webp"))}
+@media(min-width:1700px){.fa-ph-c1{background-image:image-set(url(../media/img/c1-phead-d-2400.webp) type("image/webp"))}.fa-ph-t1{background-image:image-set(url(../media/img/t1-phead-d-2400.webp) type("image/webp"))}.fa-ph-p1{background-image:image-set(url(../media/img/p1-phead-d-2400.webp) type("image/webp"))}.fa-ph-g1{background-image:image-set(url(../media/img/g1-phead-d-2400.webp) type("image/webp"))}.fa-ph-m1{background-image:image-set(url(../media/img/m1-phead-d-2400.webp) type("image/webp"))}}
+@media(max-width:879px){.fa-ph-c1{background-image:image-set(url(../media/img/c1-phead-m-960.webp) type("image/webp"))}.fa-ph-t1{background-image:image-set(url(../media/img/t1-phead-m-960.webp) type("image/webp"))}.fa-ph-p1{background-image:image-set(url(../media/img/p1-phead-m-960.webp) type("image/webp"))}.fa-ph-g1{background-image:image-set(url(../media/img/g1-phead-m-960.webp) type("image/webp"))}.fa-ph-m1{background-image:image-set(url(../media/img/m1-phead-m-960.webp) type("image/webp"))}}
+/* C4: miniaturas de logros */
+.fa-logros{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 18px;max-width:860px}
+.fa-logros img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:14px;border:1px solid rgba(255,255,255,.1)}
+/* T2-T6 */
+.gpic img{object-position:50% 30%!important}
+.v5-gal.fa-gal6 img.fa-t3{object-position:55% 50%}.v5-gal.fa-gal6 img.fa-t4{object-position:50% 40%}
+.v5-gal.fa-gal6 img.fa-t5{object-position:50% 45%}.v5-gal.fa-gal6 img.fa-t6{object-position:50% 40%}
+/* M2-M5: reels solo poster + link */
+.reel img{object-position:50% 35%}
+/* t751u/t752u: el título nunca sobre la cara de Guillermo. La foto va en un panel propio (derecha en desktop, arriba en móvil) y el texto queda al lado, nunca encima */
+.phead.fa-ph{background-size:0 0}
+.phead.fa-ph::after{content:"";position:absolute;z-index:-1;background-image:inherit;background-repeat:no-repeat;background-size:cover;pointer-events:none}
+@media(min-width:880px){
+.phead.fa-ph{min-height:500px;padding:150px 0 72px}
+.phead.fa-ph>.wrap>*{max-width:min(44vw,600px)}
+.phead.fa-ph h1{font-size:clamp(40px,4.4vw,66px)!important;line-height:.98}
+.phead.fa-ph::after{top:62px;bottom:0;right:0;width:56%;background-position:var(--fx,50%) 30%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%),linear-gradient(180deg,#000 78%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent 0,#000 34%),linear-gradient(180deg,#000 78%,transparent 100%);mask-composite:intersect}
+.phead.fa-ph::before{background:radial-gradient(60% 80% at 10% 0%,rgba(79,208,245,.10),transparent 60%)!important}
+@media(min-width:880px){.phead.fa-ph.fa-ph-t1::after{background-image:image-set(url(../media/img/t1-phead-m-960.webp) type("image/webp"));background-position:50% 0%}}
+.fa-ph-p1{--fx:52%}.fa-ph-g1{--fx:92%}.fa-ph-m1{--fx:83%}.fa-ph-t1{--fx:34%}.fa-ph-c1{--fx:70%}
+}
+@media(max-width:879px){
+.phead.fa-ph{padding-top:calc(64px + 62vw)}
+.phead.fa-ph::after{top:64px;left:0;right:0;height:100vw;background-position:50% 20%;-webkit-mask-image:linear-gradient(180deg,#000 52%,transparent 92%);mask-image:linear-gradient(180deg,#000 52%,transparent 92%)}
+.phead.fa-ph::before{background:none!important}
+}
+/* t753u: video del curso cabe entero en pantalla junto al header */
+.cmain .m.fa-v2{min-height:0!important;height:auto!important;aspect-ratio:auto!important;max-height:none!important;display:flex;justify-content:center;background:#05070b}
+.cmain .m.fa-v2 video{display:block;width:100%!important;height:auto!important;aspect-ratio:16/9!important;max-width:min(100%,1040px,calc((100svh - 77px - 56px)*16/9));max-height:calc(100svh - 77px - 56px);object-fit:cover;object-position:50% 30%}
+/* t754u: Parte 2 + suscripción sin hueco negro */
+#parte2 .m{min-height:0!important;overflow:hidden;line-height:0}
+#parte2 .m img{display:block;width:100%;height:100%;object-fit:cover}
+@media(min-width:880px){
+.grid2:has(#parte2){grid-template-columns:1fr}
+#parte2{grid-template-columns:minmax(0,46%) 1fr!important;align-items:stretch}
+#parte2 .m{aspect-ratio:auto!important;height:100%;min-height:300px!important}
+#parte2 .b{display:flex;flex-direction:column;justify-content:center}
+#parte2 .modules{grid-template-columns:1fr 1fr!important}
+#suscripcion{align-self:stretch!important;display:grid!important;grid-template-columns:1fr auto;column-gap:32px;align-items:center}
+#suscripcion>span,#suscripcion>h3,#suscripcion>p{grid-column:1}
+#suscripcion>.btn{grid-column:2;grid-row:1/4;margin-top:0!important;align-self:center!important}
+}
+/* t750u: CTA final más adentro en desktop */
+@media (min-width:880px){.v5-cta.fa-cta-media .wrap{padding-left:clamp(56px,6vw,88px)}}
+
+/* Nuestro equipo (taller): 16:9 en todas las pantallas para no recortar a nadie */
+.fa-equipo{margin:24px 0 0;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+.fa-equipo img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:50% 50%}

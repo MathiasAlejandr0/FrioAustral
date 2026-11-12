@@ -1,0 +1,39 @@
+﻿GUÍA DEMO FRÍO AUSTRAL (para mostrar al cliente)
+================================================
+
+CÓMO ABRIRLA (funciona sin internet)
+1. Doble clic en "Demo Frio Austral" en el Escritorio (o en "Abrir demo Frío Austral.bat" en esta carpeta).
+2. Se abre el navegador en http://localhost:8765 (si ese puerto está ocupado, usa 8766, 8767...).
+3. No cierres la ventana negra mientras presentas. Al cerrarla se apaga la demo.
+4. Si ves algo antiguo, presiona Ctrl+F5 en el navegador.
+
+RECORRIDO SUGERIDO
+1. Inicio: video de bienvenida (botón "Activar sonido"), curso principal y bloque del taller.
+2. Menú "Taller": servicios, galería y la sección nueva "Nuestro equipo" (foto de todo el equipo).
+3. Menú "Cursos": tráiler del curso y "Parte 2".
+4. Menú "Academia" (flujo tipo Platzi/Udemy):
+   a. Sin sesión aparece la pantalla de ingreso con "Ingresar", "Crear cuenta" y "¿Olvidaste tu contraseña?".
+      (La recuperación es de demo: aparece "Abrir link de recuperación (demo)", no se manda correo.)
+   b. Pestaña "Crear cuenta": Nombre, Email y Contraseña (mínimo 8) -> botón "Crear mi cuenta".
+   c. Sin cursos: se ve el curso con "Ver temario" y "Comprar curso" (pago único, $60.000).
+   d. "Comprar curso" -> "Confirmar pago de prueba" (no cobra nada) -> "Ver mi temario" o "Empezar curso".
+   e. "Mi aprendizaje": temario completo (25 módulos, 48 lecciones), avance y "Empezar curso" / "Continuar donde quedaste".
+   f. Abrir una lección: video, "Marcar completada" y siguiente lección. Al volver a Academia se ve el avance.
+   g. "Cerrar sesión" y volver a "Ingresar" con el mismo email: el curso sigue comprado.
+5. Opcional: "Planes", "Gratis", "Comunidad", "Tienda".
+
+AVISAR AL CLIENTE
+- Los videos de las lecciones son de ejemplo (aún no están las clases reales).
+- Los pagos son de prueba; falta conectar la pasarela real.
+
+PREGUNTAS PARA EL CLIENTE
+1. Datos para la política de privacidad: razón social, RUT y correo de contacto.
+2. Testimonios reales de alumnos o clientes (nombre o iniciales, texto y si se puede foto).
+3. Precio de la Parte 2 del curso (y fecha aproximada de lanzamiento).
+4. Confirmar precio de la Parte 1: $60.000 pago único.
+5. Confirmar planes de consultas: $5.000 / $10.000 / $20.000.
+6. Dominio: ¿cuál quiere usar y quién lo tiene comprado?
+7. WhatsApp: ¿qué número es para el taller, cuál para cursos y cuál para consultas?
+8. Pasarela de pago: ¿Mercado Pago, Flow, Webpay u otra? ¿A nombre de quién?
+9. ¿Autoriza mostrar la cara de los trabajadores en la foto "Nuestro equipo"? (idealmente por escrito)
+10. Videos reales de cada lección del curso y material PDF.
