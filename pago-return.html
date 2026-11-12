@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<script src="assets/fa-config.js"></script>
+<script src="assets/fa-gate.js"></script>
+<script src="assets/fa-flow.js"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pago de suscripción · Frío Austral</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#05070b">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/site.css"><link rel="stylesheet" href="assets/fa-app.css">
+<link rel="icon" type="image/png" href="assets/logo-frio-austral.png">
+<link rel="stylesheet" href="assets/v5.css">
+<link rel="stylesheet" href="assets/media.css">
+</head>
+<body data-fa="pago-return">
+<div class="grain" aria-hidden="true"></div>
+<header class="nav solid">
+  <a href="index.html" class="brand" aria-label="Frío Austral, inicio">
+    <picture><source type="image/webp" srcset="assets/logo-frio-austral-88.webp 1x, assets/logo-frio-austral-160.webp 2x"><img src="assets/logo-frio-austral.png" alt="Logo Frío Austral" width="44" height="44"></picture>
+    <span><b>FRÍO AUSTRAL</b><small>Refrigeración y Climatización</small></span>
+  </a>
+  <nav class="nav-links" aria-label="Principal"><a href="cursos.html">Cursos</a><a href="gratis.html">Gratis</a><a href="taller.html">Taller</a><a href="comunidad.html">Comunidad</a><a href="planes.html">Suscripción</a></nav>
+  <a class="btn btn-red btn-sm nav-cta" data-link="ver-cursos" href="cursos.html">Ver cursos</a>
+  <button class="burger" aria-label="Abrir menú" aria-expanded="false"><span></span><span></span></button>
+</header>
+<div class="drawer">
+  <a href="cursos.html">Cursos</a><a href="gratis.html">Gratis</a><a href="taller.html">Taller</a><a href="comunidad.html">Comunidad</a><a href="planes.html">Suscripción</a>
+  <a class="btn btn-line" data-link="comprar-curso" href="cursos.html">Comprar curso</a>
+</div>
+<main>
+<section class="phead"><div class="wrap" style="max-width:720px">
+  <p class="crumb mono"><a href="index.html">Inicio</a> / Pago</p>
+  <h1 id="faPayTitle" style="font-size:clamp(36px,7vw,72px)">Revisando tu pago…</h1>
+  <p class="lead" id="faPayText">Un momento, estamos confirmando el estado con Flow.</p>
+  <div class="h-acts" id="faPayActs" style="margin-top:22px"></div>
+</div></section>
+</main>
+<footer class="footer">
+  <div class="wrap foot-grid">
+    <div class="foot-brand"><img src="assets/logo-frio-austral.png" alt="Frío Austral" width="80" height="80"><p>Frío Austral SpA<br>Refrigeración y Climatización<br>Augusto Goecke 296, Puerto Montt</p></div>
+    <div><h5 class="mono">Cursos</h5><a href="cursos.html">Cursos</a><a href="planes.html">Suscripción para preguntas</a><a href="gratis.html">Recursos gratis</a></div>
+    <div><h5 class="mono">Taller</h5><a href="taller.html">Servicios</a><a href="taller.html#ubicacion">Cómo llegar</a><a href="tel:+56987785601">+56 9 8778 5601</a></div>
+    <div><h5 class="mono">Redes</h5><a href="https://www.instagram.com/frioaustralspa">Instagram</a><a href="https://www.youtube.com/@frio.austral">YouTube</a></div>
+  </div>
+</footer>
+<script src="assets/site.js"></script><script src="assets/fa-store.js"></script>
+<script src="assets/v5.js" defer></script>
+<script>
+(function(){
+  const q=new URLSearchParams(location.search);
+  const status=q.get('status')||'error';
+  const wa=q.get('wa')||'';
+  const title=document.getElementById('faPayTitle');
+  const text=document.getElementById('faPayText');
+  const acts=document.getElementById('faPayActs');
+  const btn=(href,cls,label,blank)=>`<a class="btn ${cls}" href="${href}"${blank?' target="_blank" rel="noopener"':''}>${label}</a>`;
+  if(status==='paid'){
+    title.textContent='Recibimos tu pago.';
+    text.textContent=wa
+      ? 'Gracias. El siguiente paso es coordinar cómo hablar con el equipo de Frío Austral.'
+      : 'Gracias. Cuando esté definido cómo se contactan después del pago (por ejemplo WhatsApp o la bandeja de consultas), te vamos a orientar desde acá. Por ahora, si tienes dudas, vuelve a la página de suscripción.';
+    acts.innerHTML=(wa?btn(wa,'btn-red','Escribir por WhatsApp',true):'')+' '+btn('planes.html','btn-line','Volver a suscripción');
+  }else if(status==='pending'){
+    title.textContent='Tu pago está en proceso.';
+    text.textContent='Flow todavía no confirma el cobro. Si ya pagaste, espera un momento y revisa tu email. Si no, puedes intentarlo otra vez.';
+    acts.innerHTML=btn('planes.html','btn-red','Volver a suscripción');
+  }else if(status==='rejected'||status==='canceled'){
+    title.textContent='El pago no se completó.';
+    text.textContent='No se cobró la suscripción. Puedes intentarlo de nuevo cuando quieras.';
+    acts.innerHTML=btn('planes.html','btn-red','Volver a intentarlo');
+  }else{
+    title.textContent='No pudimos confirmar el pago.';
+    text.textContent='Hubo un problema al volver desde Flow. Si te descontaron, escríbenos y lo revisamos.';
+    acts.innerHTML=btn('planes.html','btn-red','Volver a suscripción');
+  }
+})();
+</script>
+</body>
+</html>

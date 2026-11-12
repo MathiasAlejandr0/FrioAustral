@@ -1,0 +1,9 @@
+{
+  "name": "frio-austral-web",
+  "private": true,
+  "description": "Sitio web de Frío Austral (v5 Patagonia nocturna)",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "python servidor_demo.py"
+  }
+}
