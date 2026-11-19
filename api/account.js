@@ -1,12 +1,8 @@
 /**
  * API del panel "Mi cuenta" (suscriptor).
  *   POST /api/account?action=signup        {nombre, email, password}   crea la cuenta (sin sesión)
- *   GET  /api/account?action=me                                         estado, cupo, chat, pagos
- *   POST /api/account?action=start         {plan}                       inicia la suscripción (Flow)
+ *   GET  /api/account?action=me                                         estado, cupo y chat
  *   POST /api/account?action=message       {body}                       envía una pregunta (respeta cupo)
- *   POST /api/account?action=cancel                                     cancela al final del período
- *   POST /api/account?action=change-plan   {plan}                       cambia de plan
- *   POST /api/account?action=change-card                                registrar otra tarjeta en Flow
  *   GET  /api/account?action=videos                                     videollamadas (Plan Premium)
  *   POST /api/account?action=video-request {when, note}                 pide una videollamada
  *   POST /api/account?action=video-accept  {id}                         acepta la hora que propuso el equipo
@@ -16,9 +12,10 @@
  *   POST /api/account?action=material-url  {id}                         URL firmada (2 min) para descargar un material de mi plan
  *   GET  /api/account?action=site-media                                 (público) fotos y videos del sitio cambiados desde el panel
  */
-const flow = require("./_lib/flow");
+const plans = require("./_lib/plans");
 const { getUserFromToken, rest, enc, adminCreateUser, HttpError } = require("./_lib/supa");
 const S = require("./_lib/subs");
+const ACC = require("./_lib/access");
 const V = require("./_lib/video");
 const C = require("./_lib/content");
 const ST = require("./_lib/storage");
@@ -41,21 +38,22 @@ async function signup(req, res) {
   if (password.length < 8) throw new HttpError(400, "La contraseña debe tener al menos 8 caracteres.", "password");
   const user = await adminCreateUser({ email, password, nombre });
   await S.ensureSubscriber({ id: user.id, email, user_metadata: { nombre } }, nombre);
+  await ACC.applyAccess(email).catch(() => {});
   send(res, 201, { ok: true });
 }
 
 async function me(req, res, user) {
   let sub = await S.ensureSubscriber(user);
-  sub = await S.maybeSync(sub);
-  const [quota, messages, payments] = await Promise.all([
+  /* Si Hotmart ya confirmó el pago de este correo, el plan se vincula a la cuenta aquí. */
+  if (await ACC.applyAccess(user.email)) sub = await S.getSubscriber(user.id);
+  const [quota, messages] = await Promise.all([
     S.quotaFor(sub),
     rest(`messages?select=id,sender,body,created_at&user_id=eq.${enc(user.id)}&order=created_at.desc&limit=200`),
-    rest(`payments?select=flow_invoice_id,amount,status,subject,period_start,period_end,due_date,paid_at,payment_link,created_at&user_id=eq.${enc(user.id)}&order=created_at.desc&limit=36`),
   ]);
   await rest(`messages?user_id=eq.${enc(user.id)}&sender=eq.equipo&read_by_client=eq.false`, {
     method: "PATCH", prefer: "return=minimal", body: { read_by_client: true },
   }).catch(() => {});
-  const plan = sub.plan ? flow.getPlan(sub.plan) : null;
+  const plan = sub.plan ? plans.getPlan(sub.plan) : null;
   send(res, 200, {
     ok: true,
     subscriber: S.publicSub(sub),
@@ -70,37 +68,7 @@ async function me(req, res, user) {
       biblioteca: !!plan.biblioteca,
     } : { calls: false, community: false, videollamada: false, ver_preguntas_otros: false, ebooks_gratis: false, biblioteca: false },
     messages: (messages || []).reverse(),
-    payments: payments || [],
-    flowEnv: flow.getFlowConfig().env,
   });
-}
-
-async function ensureCustomer(sub) {
-  if (sub.flow_customer_id) return sub;
-  const c = await flow.createCustomer({ name: sub.nombre || sub.email, email: sub.email, externalId: sub.user_id });
-  return S.updateSubscriber(sub.user_id, { flow_customer_id: c.customerId });
-}
-
-async function start(req, res, user) {
-  needPost(req);
-  const b = await readBody(req);
-  const planKey = String(b.plan || "");
-  if (!flow.getPlan(planKey)) throw new HttpError(400, "Plan no válido.", "bad_plan");
-  let sub = await S.ensureSubscriber(user, b.nombre);
-  if (sub.flow_subscription_id && sub.status !== "cancelada") {
-    sub = await S.syncFromFlow(sub).catch(() => sub);
-    if (sub.status !== "cancelada") {
-      throw new HttpError(409, "Ya tienes una suscripción. Para cambiar de plan usa el panel Mi cuenta.", "already_subscribed");
-    }
-  }
-  sub = await ensureCustomer(sub);
-  if (sub.card_last4) {
-    await S.createSubscriptionFor(sub, planKey);
-    return send(res, 200, { ok: true, redirect: "mi-cuenta.html?alta=ok" });
-  }
-  await S.updateSubscriber(sub.user_id, { pending_plan: planKey, status: "pendiente_tarjeta" });
-  const reg = await flow.registerCard(sub.flow_customer_id);
-  send(res, 200, { ok: true, redirect: `${reg.url}?token=${encodeURIComponent(reg.token)}` });
 }
 
 async function message(req, res, user) {
@@ -108,11 +76,10 @@ async function message(req, res, user) {
   const b = await readBody(req);
   const text = S.cleanMessage(b.body);
   let sub = await S.getSubscriber(user.id);
-  sub = await S.maybeSync(sub);
   if (!S.canAsk(sub)) throw new HttpError(403, "Tu suscripción no está activa. Renueva o regulariza el pago para seguir preguntando.", "inactive");
   const q = await S.quotaFor(sub);
   if (!q.unlimited && q.left <= 0) {
-    throw new HttpError(403, `Usaste tus ${q.limit} preguntas de este período. Puedes cambiarte al Plan Técnico.`, "quota");
+    throw new HttpError(403, `Usaste tus ${q.limit} preguntas de este período. Para seguir preguntando, escríbele al equipo para pasarte al Plan Técnico.`, "quota");
   }
   const rows = await rest("messages", {
     method: "POST", prefer: "return=representation",
@@ -121,51 +88,9 @@ async function message(req, res, user) {
   send(res, 201, { ok: true, message: rows[0], quota: await S.quotaFor(sub) });
 }
 
-async function cancel(req, res, user) {
-  needPost(req);
-  const sub = await S.getSubscriber(user.id);
-  if (!sub || !sub.flow_subscription_id || sub.status === "cancelada") throw new HttpError(400, "No tienes una suscripción activa.", "no_sub");
-  await flow.cancelSubscription(sub.flow_subscription_id, true);
-  const updated = await S.syncFromFlow(sub).catch(() => S.updateSubscriber(user.id, { cancel_at_period_end: true, status: "cancelada_fin_periodo" }));
-  send(res, 200, { ok: true, subscriber: S.publicSub(updated) });
-}
-
-async function changePlan(req, res, user) {
-  needPost(req);
-  const b = await readBody(req);
-  const planKey = String(b.plan || "");
-  const plan = flow.getPlan(planKey);
-  if (!plan) throw new HttpError(400, "Plan no válido.", "bad_plan");
-  const sub = await S.getSubscriber(user.id);
-  if (!sub || !sub.flow_subscription_id || sub.status === "cancelada") throw new HttpError(400, "No tienes una suscripción activa.", "no_sub");
-  if (sub.plan === planKey) throw new HttpError(400, "Ya estás en ese plan.", "same_plan");
-  await flow.ensureFlowPlan(planKey);
-  await flow.changeSubscriptionPlan(sub.flow_subscription_id, plan.flowPlanId);
-  let updated = await S.updateSubscriber(user.id, { plan: planKey, flow_plan_id: plan.flowPlanId, synced_at: null });
-  updated = await S.syncFromFlow(updated).catch(() => updated);
-  send(res, 200, { ok: true, subscriber: S.publicSub(updated) });
-}
-
-async function changeCard(req, res, user) {
-  needPost(req);
-  let sub = await S.ensureSubscriber(user);
-  sub = await ensureCustomer(sub);
-  let reg;
-  try {
-    reg = await flow.registerCard(sub.flow_customer_id);
-  } catch (err) {
-    if (err.name !== "FlowError" || err.code === "not_configured") throw err;
-    /* Si Flow no deja registrar con una tarjeta vigente, se quita la anterior y se registra la nueva. */
-    await flow.unregisterCard(sub.flow_customer_id);
-    await S.updateSubscriber(user.id, { card_brand: null, card_last4: null });
-    reg = await flow.registerCard(sub.flow_customer_id);
-  }
-  send(res, 200, { ok: true, redirect: `${reg.url}?token=${encodeURIComponent(reg.token)}` });
-}
-
 async function community(req, res, user) {
-  const sub = await S.maybeSync(await S.getSubscriber(user.id));
-  const plan = sub && sub.plan ? flow.getPlan(sub.plan) : null;
+  const sub = await await S.getSubscriber(user.id);
+  const plan = sub && sub.plan ? plans.getPlan(sub.plan) : null;
   if (!plan || !(plan.community || plan.ver_preguntas_otros) || !S.canAsk(sub)) throw new HttpError(403, "El historial de preguntas de otros usuarios es parte del Plan Premium.", "not_premium");
   const q = String(queryOf(req).q || "").trim().toLowerCase().slice(0, 80);
   const rows = await rest("messages?select=user_id,sender,body,created_at&order=user_id.asc,created_at.asc&limit=3000");
@@ -184,8 +109,8 @@ async function community(req, res, user) {
 }
 
 async function requireVideoPlan(user) {
-  const sub = await S.maybeSync(await S.getSubscriber(user.id));
-  const plan = sub && sub.plan ? flow.getPlan(sub.plan) : null;
+  const sub = await await S.getSubscriber(user.id);
+  const plan = sub && sub.plan ? plans.getPlan(sub.plan) : null;
   if (!plan || !plan.videollamada || !S.canAsk(sub)) throw new HttpError(403, "Las videollamadas de asesoría son parte del Plan Premium.", "not_premium");
   return sub;
 }
@@ -237,7 +162,6 @@ async function videoCancel(req, res, user) {
 /* ---------- material por plan: solo lo ve y lo descarga quien tiene su plan vigente ---------- */
 async function accessiblePlan(user) {
   let sub = await S.getSubscriber(user.id);
-  sub = await S.maybeSync(sub);
   if (!S.canAsk(sub)) throw new HttpError(403, "Tu suscripción no está activa. Renueva tu plan para ver el material.", "inactive");
   return sub.plan;
 }
@@ -274,7 +198,7 @@ async function siteMedia(req, res) {
   res.end(JSON.stringify({ ok: true, items }));
 }
 
-const ROUTES = { me, start, message, cancel, "change-plan": changePlan, "change-card": changeCard, community, videos, "video-request": videoRequest, "video-accept": videoAccept, "video-cancel": videoCancel, materials, "material-url": materialUrl };
+const ROUTES = { me, message, community, videos, "video-request": videoRequest, "video-accept": videoAccept, "video-cancel": videoCancel, materials, "material-url": materialUrl };
 
 module.exports = handle(async (req, res) => {
   const action = String(queryOf(req).action || "");

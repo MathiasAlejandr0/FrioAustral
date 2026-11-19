@@ -57,10 +57,9 @@ function handle(fn) {
       await fn(req, res);
     } catch (err) {
       const status = err.status || err.httpStatus || 500;
-      const known = err instanceof HttpError || err.name === "FlowError";
+      const known = err instanceof HttpError;
       if (!known || status >= 500) console.error("[api]", err && err.code, err && err.message);
       let message = known ? err.message : "Error inesperado. Intenta de nuevo.";
-      if (err.name === "FlowError" && err.code !== "not_configured") message = "Flow rechazó la operación. Intenta de nuevo o escríbenos.";
       send(res, status >= 400 && status < 600 ? status : 500, { ok: false, code: err.code || "error", message });
     }
   };

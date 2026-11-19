@@ -7,8 +7,8 @@
 .fa-inline select{padding:8px 10px}
 .fa-inline select option{background:var(--ink)}
 .fa-input textarea{flex:1;min-width:0;resize:vertical;min-height:48px}
-.fa-flow-err{color:#ff7b75;margin:0;font-size:14px}
-.fa-flow-err[hidden]{display:none}
+.fa-err{color:#ff7b75;margin:0;font-size:14px}
+.fa-err[hidden]{display:none}
 .fa-linkbtn{background:none;border:0;color:var(--ice);font:inherit;cursor:pointer;padding:0;text-decoration:underline}
 .fa-sub-note{font-size:14px;color:var(--mut);margin:0}
 .fa-cta-msg{padding:12px 16px;border:1px solid var(--line);border-radius:12px;margin:0 0 16px;font-size:15px}

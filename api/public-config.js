@@ -1,6 +1,5 @@
 /** Configuración pública para el navegador (URL de Supabase y anon key: ambas son públicas por diseño). */
 const { supaConfig } = require("./_lib/supa");
-const { getFlowConfig } = require("./_lib/flow");
 
 module.exports = (req, res) => {
   const c = supaConfig();
@@ -11,7 +10,5 @@ module.exports = (req, res) => {
     supabaseUrl: c.url || null,
     supabaseAnonKey: c.anonKey || null,
     ready: c.isConfigured,
-    flowReady: getFlowConfig().isConfigured,
-    flowEnv: getFlowConfig().env,
   }));
 };

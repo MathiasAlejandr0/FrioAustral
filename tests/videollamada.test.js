@@ -5,9 +5,6 @@ const assert = require("node:assert/strict");
 process.env.SUPABASE_URL = "https://db.test";
 process.env.SUPABASE_ANON_KEY = "anon";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
-process.env.FLOW_API_KEY = "k";
-process.env.FLOW_SECRET_KEY = "s";
-process.env.FLOW_API_URL = "https://sandbox.flow.cl/api";
 process.env.SITE_URL = "https://sitio.test";
 process.env.ADMIN_EMAILS = "equipo@test.cl";
 
@@ -17,7 +14,7 @@ const USERS = {
   team: { id: "99999999-9999-9999-9999-999999999999", email: "equipo@test.cl" },
 };
 let db;
-const sub = (u, plan) => ({ user_id: u.id, email: u.email, nombre: u.email, plan, status: "activa", flow_subscription_id: "sus_" + u.id.slice(0, 2), period_start: "2026-11-01T03:00:00Z", period_end: "2099-12-01T03:00:00Z", synced_at: new Date().toISOString() });
+const sub = (u, plan) => ({ user_id: u.id, email: u.email, nombre: u.email, plan, status: "activa", period_start: "2026-11-01T03:00:00Z", period_end: "2099-12-01T03:00:00Z" });
 beforeEach(() => {
   db = { subscribers: [sub(USERS.pro, "premium"), sub(USERS.otro, "premium")], videocalls: [], admins: [], messages: [], payments: [] };
 });

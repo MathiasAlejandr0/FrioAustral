@@ -222,3 +222,6 @@ html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
 .fa-vid-form{display:grid;gap:10px;grid-template-columns:1fr;margin-bottom:12px}@media(min-width:760px){.fa-vid-form{grid-template-columns:1fr 2fr auto;align-items:end}}
 .fa-vid .fa-row{margin-top:8px;flex-wrap:wrap;gap:8px;align-items:center}
 .fa-eq-vids{margin:18px 0}.fa-eq-vids .fa-q{display:grid;gap:6px}
+
+.is-soon{opacity:.55;cursor:not-allowed;pointer-events:none}
+.fa-hm-note{margin:10px 0 0}

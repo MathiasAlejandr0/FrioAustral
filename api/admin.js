@@ -4,16 +4,15 @@
  *   GET  /api/admin?action=list
  *   GET  /api/admin?action=thread&user=<uuid>
  *   POST /api/admin?action=reply        {user, body}
- *   POST /api/admin?action=sync         {user}
  *   GET  /api/admin?action=videos                     solicitudes de videollamada
  *   POST /api/admin?action=video-confirm  {id}
  *   POST /api/admin?action=video-propose  {id, when, note}
  *   POST /api/admin?action=video-cancel   {id}
- *   POST /api/admin?action=setup-plans  crea en Flow los planes de fa-config.js (idempotente)
  *
- * Accesos sin Flow (compras por Hotmart):
- *   POST /api/admin?action=grant-plan     {user, plan, until}   asigna plan y vigencia a un suscriptor
- *   POST /api/admin?action=revoke-plan    {user}                quita el acceso
+ * Accesos por plan (los activa solo el webhook de Hotmart, /api/hotmart/webhook; el admin los ve y puede ajustarlos):
+ *   GET  /api/admin?action=access-list                           accesos por correo + últimos eventos de Hotmart
+ *   POST /api/admin?action=access-grant   {email, plan, until}   respaldo: dar acceso a mano a un correo
+ *   POST /api/admin?action=access-revoke  {id}                   respaldo: quitar un acceso
  * Material por plan (bucket privado plan-material):
  *   GET  /api/admin?action=materials
  *   POST /api/admin?action=material-upload-url {fileName, contentType, size}  -> {path, token} para subir directo a Storage
@@ -26,9 +25,10 @@
  *   POST /api/admin?action=media-save      {slot, path, contentType, size, alt}
  *   POST /api/admin?action=media-reset     {slot}               vuelve al archivo original del sitio
  */
-const flow = require("./_lib/flow");
+const plans = require("./_lib/plans");
 const { getUserFromToken, rest, enc, HttpError } = require("./_lib/supa");
 const S = require("./_lib/subs");
+const ACC = require("./_lib/access");
 const V = require("./_lib/video");
 const C = require("./_lib/content");
 const ST = require("./_lib/storage");
@@ -39,7 +39,7 @@ const UUID_RE = /^[0-9a-f-]{36}$/i;
 
 async function list(req, res) {
   const [subs, unread] = await Promise.all([
-    rest("subscribers?select=user_id,email,nombre,plan,status,period_start,period_end,next_charge_at,cancel_at_period_end,card_last4,flow_subscription_id,created_at&order=created_at.desc&limit=1000"),
+    rest("subscribers?select=user_id,email,nombre,plan,status,period_start,period_end,cancel_at_period_end,created_at&order=created_at.desc&limit=1000"),
     rest("messages?select=user_id,created_at&sender=eq.cliente&read_by_team=eq.false&limit=5000"),
   ]);
   const byUser = {};
@@ -48,17 +48,16 @@ async function list(req, res) {
     u.n++;
     if (!u.last || m.created_at > u.last) u.last = m.created_at;
   }
-  const items = (subs || []).map(({ flow_subscription_id, ...s }) => ({
+  const items = (subs || []).map((s) => ({
     ...s,
-    viaFlow: !!flow_subscription_id,
-    planName: s.plan ? (flow.getPlan(s.plan) || {}).name : null,
+    planName: s.plan ? (plans.getPlan(s.plan) || {}).name : null,
     unread: (byUser[s.user_id] || {}).n || 0,
     lastUnreadAt: (byUser[s.user_id] || {}).last || null,
     canAsk: S.canAsk(s),
   }));
   const active = items.filter((s) => s.canAsk);
-  const mrr = active.reduce((acc, s) => acc + ((flow.getPlan(s.plan) || {}).amount || 0), 0);
-  send(res, 200, { ok: true, items, stats: { total: items.length, active: active.length, unread: Object.values(byUser).reduce((a, b) => a + b.n, 0), mrr }, flowEnv: flow.getFlowConfig().env });
+  const mrr = active.reduce((acc, s) => acc + ((plans.getPlan(s.plan) || {}).amount || 0), 0);
+  send(res, 200, { ok: true, items, stats: { total: items.length, active: active.length, unread: Object.values(byUser).reduce((a, b) => a + b.n, 0), mrr } });
 }
 
 function userParam(v) {
@@ -71,15 +70,14 @@ async function thread(req, res) {
   const id = userParam(queryOf(req).user);
   const sub = await S.getSubscriber(id);
   if (!sub) throw new HttpError(404, "Suscriptor no encontrado.", "not_found");
-  const [messages, payments, quota] = await Promise.all([
+  const [messages, quota] = await Promise.all([
     rest(`messages?select=id,sender,body,created_at&user_id=eq.${enc(id)}&order=created_at.asc&limit=500`),
-    rest(`payments?select=flow_invoice_id,amount,status,period_start,period_end,paid_at,created_at&user_id=eq.${enc(id)}&order=created_at.desc&limit=24`),
     S.quotaFor(sub),
   ]);
   await rest(`messages?user_id=eq.${enc(id)}&sender=eq.cliente&read_by_team=eq.false`, {
     method: "PATCH", prefer: "return=minimal", body: { read_by_team: true },
   });
-  send(res, 200, { ok: true, subscriber: { user_id: id, ...S.publicSub(sub) }, canAsk: S.canAsk(sub), quota, messages, payments });
+  send(res, 200, { ok: true, subscriber: { user_id: id, ...S.publicSub(sub) }, canAsk: S.canAsk(sub), quota, messages });
 }
 
 async function reply(req, res, admin) {
@@ -97,21 +95,6 @@ async function reply(req, res, admin) {
     method: "PATCH", prefer: "return=minimal", body: { read_by_team: true },
   });
   send(res, 201, { ok: true, message: rows[0] });
-}
-
-async function sync(req, res) {
-  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
-  const b = await readBody(req);
-  const sub = await S.getSubscriber(userParam(b.user));
-  if (!sub) throw new HttpError(404, "Suscriptor no encontrado.", "not_found");
-  const updated = await S.syncFromFlow(sub);
-  send(res, 200, { ok: true, subscriber: S.publicSub(updated) });
-}
-
-async function setupPlans(req, res) {
-  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
-  const plans = await flow.ensureAllFlowPlans();
-  send(res, 200, { ok: true, plans, flowEnv: flow.getFlowConfig().env });
 }
 
 async function whoami(req, res, admin) {
@@ -164,7 +147,7 @@ async function videoCancel(req, res) {
   send(res, 200, { ok: true, item: V.publicCall(await patchCall(v.id, { status: "cancelada" })) });
 }
 
-/* ---------- accesos sin Flow (Hotmart): el equipo asigna el plan y la vigencia ---------- */
+/* ---------- accesos por plan (compra en Hotmart): el equipo asigna el plan y la vigencia ---------- */
 function untilParam(v) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ""));
   const d = m ? new Date(`${m[1]}-${m[2]}-${m[3]}T23:59:59-03:00`) : null;
@@ -174,36 +157,52 @@ function untilParam(v) {
   return d.toISOString();
 }
 
-async function manualSub(userId) {
-  const sub = await S.getSubscriber(userParam(userId));
-  if (!sub) throw new HttpError(404, "Suscriptor no encontrado.", "not_found");
-  if (sub.flow_subscription_id && sub.status !== "cancelada") {
-    throw new HttpError(409, "Esta persona paga con Flow: su plan se actualiza solo desde Flow.", "via_flow");
-  }
-  return sub;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/* Lista de accesos (llenada por el webhook de Hotmart) y últimos eventos recibidos. */
+async function accessList(req, res) {
+  const [rows, events, subs] = await Promise.all([
+    rest("plan_access?select=*&order=updated_at.desc&limit=500"),
+    rest("hotmart_events?select=event,email,plan,product_id,offer_code,outcome,detail,received_at&order=received_at.desc&limit=30"),
+    rest("subscribers?select=email&limit=2000"),
+  ]);
+  const registered = new Set((subs || []).map((x) => String(x.email || "").toLowerCase()));
+  const items = (rows || []).map((r) => ({
+    id: r.id, email: r.email, plan: r.plan, planName: (plans.getPlan(r.plan) || {}).name || r.plan, status: r.status,
+    periodEnd: r.period_end, source: r.source, lastEvent: r.last_event, lastEventAt: r.last_event_at, buyerName: r.buyer_name,
+    hasAccount: registered.has(r.email),
+    active: (r.status === "activa" || r.status === "cancelada_fin_periodo") && !!r.period_end && new Date(r.period_end).getTime() + 86400000 >= Date.now(),
+  }));
+  send(res, 200, { ok: true, items, events: events || [], hottokConfigured: !!(process.env.HOTMART_HOTTOK || "").trim() });
 }
 
-async function grantPlan(req, res) {
+/* Respaldo: dar acceso a mano a un correo (no es el flujo principal). */
+async function accessGrant(req, res) {
   if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
   const b = await readBody(req);
   const plan = String(b.plan || "");
   if (!C.PLAN_KEYS.includes(plan)) throw new HttpError(400, "Plan no válido.", "bad_plan");
-  const sub = await manualSub(b.user);
+  const email = String(b.email || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) throw new HttpError(400, "Revisa el correo.", "bad_email");
   const until = untilParam(b.until);
-  const rows = await rest(`subscribers?user_id=eq.${enc(sub.user_id)}`, {
-    method: "PATCH", prefer: "return=representation",
-    body: { plan, pending_plan: null, status: "activa", period_start: new Date().toISOString(), period_end: until, next_charge_at: null, cancel_at_period_end: false, updated_at: new Date().toISOString() },
-  });
-  send(res, 200, { ok: true, subscriber: S.publicSub(rows[0]) });
+  const now = new Date().toISOString();
+  const row = await ACC.saveAccess(email, plan, { status: "activa", period_start: now, period_end: until, source: "manual", last_event: "MANUAL_GRANT", last_event_id: null, last_event_at: now });
+  await ACC.applyAccess(email);
+  send(res, 200, { ok: true, id: row.id });
 }
 
-async function revokePlan(req, res) {
+async function accessRevoke(req, res) {
   if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
-  const sub = await manualSub((await readBody(req)).user);
-  const rows = await rest(`subscribers?user_id=eq.${enc(sub.user_id)}`, {
-    method: "PATCH", prefer: "return=representation", body: { status: "cancelada", updated_at: new Date().toISOString() },
+  const id = String((await readBody(req)).id || "");
+  if (!C.UUID_RE.test(id)) throw new HttpError(400, "Acceso no válido.", "bad_id");
+  const now = new Date().toISOString();
+  const rows = await rest(`plan_access?id=eq.${enc(id)}`, {
+    method: "PATCH", prefer: "return=representation",
+    body: { status: "cancelada", period_end: now, last_event: "MANUAL_REVOKE", last_event_at: now, updated_at: now },
   });
-  send(res, 200, { ok: true, subscriber: S.publicSub(rows[0]) });
+  if (!rows || !rows[0]) throw new HttpError(404, "No encontramos ese acceso.", "not_found");
+  await ACC.applyAccess(rows[0].email);
+  send(res, 200, { ok: true });
 }
 
 /* ---------- material por plan ---------- */
@@ -319,8 +318,8 @@ async function mediaReset(req, res) {
   send(res, 200, { ok: true });
 }
 
-const ROUTES = { list, thread, reply, sync, "setup-plans": setupPlans, whoami, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
-  "grant-plan": grantPlan, "revoke-plan": revokePlan,
+const ROUTES = { list, thread, reply, whoami, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
+  "access-list": accessList, "access-grant": accessGrant, "access-revoke": accessRevoke,
   materials, "material-upload-url": materialUploadUrl, "material-save": materialSave, "material-update": materialUpdate, "material-delete": materialDelete,
   media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset };
 

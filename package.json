@@ -1,11 +1,10 @@
 {
   "name": "frio-austral-web",
   "private": true,
-  "description": "Sitio web de Frío Austral (v5 Patagonia nocturna) + suscripción mensual con Flow y panel Mi cuenta",
+  "description": "Sitio web de Frío Austral (v5 Patagonia nocturna) + planes y cursos con links de pago de Hotmart, panel Mi cuenta y panel del equipo",
   "engines": { "node": ">=20" },
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "start": "python servidor_demo.py",
-    "flow:plans": "node --env-file=.env.local scripts/flow-create-plans.js"
+    "start": "python servidor_demo.py"
   }
 }

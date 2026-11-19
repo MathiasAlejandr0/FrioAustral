@@ -1,4 +1,4 @@
-/* Contenido del sitio (equipo): material por plan, fotos y videos de la página, y accesos por plan (Hotmart).
+/* Contenido del sitio (equipo): material por plan, fotos y videos de la página, y accesos por plan (activados por Hotmart).
    Las subidas van directo a Supabase Storage con un token de un solo uso que entrega /api/admin;
    el navegador nunca tiene la clave de servicio. */
 (function () {
@@ -9,8 +9,6 @@
   const PK = ["basico", "pro", "premium"];
   const pname = (k) => (PLANS[k] || {}).name || k;
   const CAT = { ebook: "Ebook", biblioteca: "Biblioteca", guia: "Guía", video: "Video", recurso: "Recurso" };
-  const STATUS = { activa: "Activa", cancelada_fin_periodo: "Cancela a fin de período", pago_pendiente: "Pago en proceso", pendiente: "Por iniciar", pendiente_tarjeta: "Sin tarjeta", morosa: "Morosa", cancelada: "Cancelada", sin_suscripcion: "Sin plan" };
-  const cls = (s) => (s === "activa" ? "fa-ok" : s === "morosa" || s === "cancelada" || s === "sin_suscripcion" ? "fa-bad" : "fa-warn");
   const fsize = (n) => (n == null ? "" : n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
   let tab = "material", mats = null, media = null, subs = null, pageFilter = "Todas", subQ = "", msg = null;
 
@@ -18,7 +16,7 @@
     root.innerHTML = `<div class="fa-auth glass"><h2>Contenido del sitio</h2><p class="fa-sub-note">Ingresa con la cuenta del equipo de Frío Austral.</p>
       <form id="faLogin" novalidate><label>Email<input name="email" type="email" autocomplete="username" required></label>
       <label>Contraseña<input name="password" type="password" autocomplete="current-password" required></label>
-      <p class="fa-flow-err" role="alert" ${m ? "" : "hidden"}>${esc(m || "")}</p><button class="btn btn-red">Ingresar</button></form></div>`;
+      <p class="fa-err" role="alert" ${m ? "" : "hidden"}>${esc(m || "")}</p><button class="btn btn-red">Ingresar</button></form></div>`;
     const f = $("#faLogin");
     f.onsubmit = async (e) => {
       e.preventDefault();
@@ -46,7 +44,7 @@
     try {
       if (tab === "material" && !mats) mats = (await A.api("/api/admin?action=materials")).items;
       if (tab === "fotos" && !media) media = (await A.api("/api/admin?action=media")).items;
-      if (tab === "accesos" && !subs) subs = (await A.api("/api/admin?action=list")).items;
+      if (tab === "accesos" && !subs) subs = await A.api("/api/admin?action=access-list");
     } catch (e) { say(e.message, true); }
   }
 
@@ -82,7 +80,7 @@
           <label>Descripción (opcional)<textarea name="description" rows="2" maxlength="1000"></textarea></label>
           <label>Categoría<select name="category" id="faMatCat">${catOpts("ebook")}</select></label>
           <fieldset><legend>Lo ven los suscriptores de</legend>${planBoxes("plans", ["premium"])}</fieldset>
-          <p class="fa-flow-err" id="faMatErr" role="alert" hidden></p>
+          <p class="fa-err" id="faMatErr" role="alert" hidden></p>
           <div><button class="btn btn-red btn-sm" id="faMatGo">Subir material</button> <span class="fa-sub-note" id="faMatProg" hidden>Subiendo…</span></div>
         </form></section>
       <section class="fa-card glass"><span class="fa-ej mono">Material publicado (${(mats || []).length})</span>${list}</section>`;
@@ -142,7 +140,7 @@
           ${m.hint ? `<p class="fa-sub-note">${esc(m.hint)}</p>` : ""}</div>
         <form data-up="${esc(m.id)}" class="fa-slot-form"><label>${m.kind === "video" ? "Video nuevo" : "Foto nueva"} <small>(${esc(m.limits)})</small><input type="file" name="file" required accept="${m.kind === "video" ? ".mp4,.webm,video/mp4,video/webm" : ".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif"}"></label>
           ${m.kind === "image" ? `<label>Descripción de la foto (para accesibilidad, opcional)<input name="alt" maxlength="300" value="${esc(m.custom ? m.custom.alt : "")}"></label>` : ""}
-          <p class="fa-flow-err" hidden role="alert"></p>
+          <p class="fa-err" hidden role="alert"></p>
           <div class="fa-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-red btn-sm">Cambiar</button>${m.custom ? `<button type="button" class="btn btn-line btn-sm" data-reset="${esc(m.id)}">Volver al original</button>` : ""}</div></form>
       </div>`).join("");
     return `<p class="fa-sub-note">Cada espacio reemplaza la foto o el video de esa parte de la página. Si no subes nada, o si el archivo nuevo no carga, el sitio sigue mostrando el original. Los cambios se ven en menos de un minuto.</p>
@@ -153,7 +151,7 @@
     const pf = $("#faPageF"); if (pf) pf.onchange = () => { pageFilter = pf.value; render(); };
     root.querySelectorAll("[data-up]").forEach((form) => (form.onsubmit = async (e) => {
       e.preventDefault();
-      const slot = form.getAttribute("data-up"), d = new FormData(form), file = d.get("file"), er = $(".fa-flow-err", form), btn = $("button", form);
+      const slot = form.getAttribute("data-up"), d = new FormData(form), file = d.get("file"), er = $(".fa-err", form), btn = $("button", form);
       if (!file || !file.size) return;
       er.hidden = true; btn.disabled = true; btn.textContent = "Subiendo…";
       try {
@@ -170,35 +168,50 @@
     }));
   }
 
-  /* ---------------- Accesos por plan (compras por Hotmart) ---------------- */
+  /* ---------------- Accesos por plan: los activa solo el webhook de Hotmart ---------------- */
   const plus = (days) => { const d = new Date(Date.now() + days * 86400000); return d.toLocaleDateString("en-CA", { timeZone: "America/Santiago" }); };
+  const ACC_STATUS = { activa: ["Activo", "fa-ok"], cancelada_fin_periodo: ["Cancelado · vigente hasta el fin del período", "fa-warn"], cancelada: ["Desactivado", "fa-bad"] };
+  const OUTCOME = { applied: "Aplicado", ignored: "Sin efecto", unmapped: "Producto sin plan", stale: "Evento antiguo", no_email: "Sin correo" };
   function accesosView() {
+    const d = subs || { items: [], events: [], hottokConfigured: false };
     const q = subQ.toLowerCase();
-    const rows = (subs || []).filter((s) => !q || (s.nombre + " " + s.email).toLowerCase().includes(q)).map((s) => {
-      const exp = s.period_end ? fdate(s.period_end) : "—";
-      return `<tr data-u="${esc(s.user_id)}"><td><b>${esc(s.nombre || s.email)}</b><br><small class="fa-sub-note">${esc(s.email)}</small></td>
-        <td>${esc(s.planName || "Sin plan")}<br><span class="fa-pill ${cls(s.status)}">${esc(STATUS[s.status] || s.status)}</span></td>
-        <td>${s.viaFlow ? `<small class="fa-sub-note">Paga con Flow: se actualiza solo.</small>` : `<form class="fa-grant" data-grant="${esc(s.user_id)}"><select name="plan">${PK.map((k) => `<option value="${k}" ${s.plan === k ? "selected" : ""}>${esc(pname(k))}</option>`).join("")}</select>
-          <label class="fa-inline">Hasta <input type="date" name="until" value="${esc(plus(31))}" required></label>
-          <button class="btn btn-red btn-sm">${s.plan && s.status === "activa" ? "Actualizar" : "Dar acceso"}</button>${s.plan && s.status === "activa" ? ` <button type="button" class="btn btn-line btn-sm fa-danger" data-revoke="${esc(s.user_id)}">Quitar</button>` : ""}</form><small class="fa-sub-note">Vence: ${esc(exp)}</small>`}</td></tr>`;
+    const rows = d.items.filter((r) => !q || (r.email + " " + (r.buyerName || "")).toLowerCase().includes(q)).map((r) => {
+      const st = ACC_STATUS[r.status] || [r.status, ""];
+      const live = r.active ? st : ["Vencido", "fa-bad"];
+      return `<tr><td><b>${esc(r.buyerName || r.email)}</b><br><small class="fa-sub-note">${esc(r.email)}</small></td>
+        <td>${esc(r.planName)}<br><span class="fa-pill ${live[1]}">${esc(live[0])}</span></td>
+        <td>${r.periodEnd ? esc(fdate(r.periodEnd)) : "—"}</td>
+        <td><small class="fa-sub-note">${r.source === "manual" ? "A mano" : "Hotmart"} · ${r.hasAccount ? "ya tiene cuenta" : "aún sin cuenta"}</small></td>
+        <td>${r.status !== "cancelada" ? `<button type="button" class="btn btn-line btn-sm fa-danger" data-revoke="${esc(r.id)}">Quitar</button>` : ""}</td></tr>`;
     }).join("");
-    return `<section class="fa-card glass"><span class="fa-ej mono">Quién tiene acceso</span>
-      <p class="fa-sub-note">Las compras de planes se hacen en Hotmart. Quien compra crea su cuenta en el sitio con el <b>mismo correo</b> y aquí le das acceso al plan que pagó, hasta la fecha que corresponda (en general, un mes por cada pago). Mientras el acceso esté vigente puede preguntar y ver el material de su plan.</p>
+    const ev = d.events.map((e) => `<tr><td>${esc(fdate(e.received_at, true))}</td><td>${esc(e.event)}</td><td>${esc(e.email || "—")}</td><td>${esc(e.plan ? pname(e.plan) : "—")}</td><td>${esc(OUTCOME[e.outcome] || e.outcome)}</td></tr>`).join("");
+    return `<section class="fa-card glass"><span class="fa-ej mono">Suscripciones</span>
+      <p class="fa-sub-note">Los planes se pagan en Hotmart y <b>se activan solos</b>: cuando Hotmart confirma el pago, el plan queda activo para el correo del comprador y se vincula a su cuenta cuando entra a <b>Mi cuenta</b> con ese correo. Los reembolsos, cancelaciones y contracargos lo desactivan solos.</p>
+      ${d.hottokConfigured ? "" : `<p class="fa-cta-msg bad" role="status">Falta conectar Hotmart: el sitio todavía no tiene el token del webhook (HOTMART_HOTTOK), por eso no se activa ningún plan automáticamente.</p>`}
       <input id="faSubQ" placeholder="Buscar nombre o email" value="${esc(subQ)}">
-      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan actual</th><th>Asignar plan</th></tr></thead><tbody>${rows || `<tr><td colspan="3" class="fa-sub-note">Nadie se ha registrado todavía.</td></tr>`}</tbody></table></div></section>`;
+      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan</th><th>Vigente hasta</th><th>Origen</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="5" class="fa-sub-note">Todavía no hay compras confirmadas por Hotmart.</td></tr>`}</tbody></table></div></section>
+      <section class="fa-card glass"><span class="fa-ej mono">Últimos avisos de Hotmart</span>
+      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Fecha</th><th>Evento</th><th>Correo</th><th>Plan</th><th>Resultado</th></tr></thead><tbody>${ev || `<tr><td colspan="5" class="fa-sub-note">Aún no ha llegado ningún aviso.</td></tr>`}</tbody></table></div></section>
+      <details class="fa-card glass"><summary><b>Respaldo: dar acceso a mano</b></summary>
+        <p class="fa-sub-note">Solo si Hotmart no avisó por alguna razón. Escribe el correo con que la persona pagó.</p>
+        <form class="fa-grant" id="faGrant"><label class="fa-inline">Correo <input type="email" name="email" required></label>
+          <select name="plan">${PK.map((k) => `<option value="${k}">${esc(pname(k))}</option>`).join("")}</select>
+          <label class="fa-inline">Hasta <input type="date" name="until" value="${esc(plus(31))}" required></label>
+          <button class="btn btn-red btn-sm">Dar acceso</button></form></details>`;
   }
   function bindAccesos() {
     const qi = $("#faSubQ");
     if (qi) qi.oninput = () => { subQ = qi.value.trim(); const pos = qi.selectionStart; render(); const n = $("#faSubQ"); n.focus(); n.setSelectionRange(pos, pos); };
-    root.querySelectorAll("[data-grant]").forEach((f) => (f.onsubmit = async (e) => {
+    const f = $("#faGrant");
+    if (f) f.onsubmit = async (e) => {
       e.preventDefault();
       const d = new FormData(f);
-      try { await A.api("/api/admin?action=grant-plan", { body: { user: f.getAttribute("data-grant"), plan: d.get("plan"), until: d.get("until") } }); subs = null; say("Acceso guardado."); await ensure(); } catch (ex) { say(ex.message, true); }
+      try { await A.api("/api/admin?action=access-grant", { body: { email: d.get("email"), plan: d.get("plan"), until: d.get("until") } }); subs = null; say("Acceso guardado."); await ensure(); } catch (ex) { say(ex.message, true); }
       render();
-    }));
+    };
     root.querySelectorAll("[data-revoke]").forEach((b) => (b.onclick = async () => {
-      if (!confirm("¿Quitar el acceso a este suscriptor? Deja de ver el material y de poder preguntar.")) return;
-      try { await A.api("/api/admin?action=revoke-plan", { body: { user: b.getAttribute("data-revoke") } }); subs = null; say("Acceso quitado."); await ensure(); } catch (ex) { say(ex.message, true); }
+      if (!confirm("¿Quitar este acceso? La persona deja de ver el material y de poder preguntar.")) return;
+      try { await A.api("/api/admin?action=access-revoke", { body: { id: b.getAttribute("data-revoke") } }); subs = null; say("Acceso quitado."); await ensure(); } catch (ex) { say(ex.message, true); }
       render();
     }));
   }

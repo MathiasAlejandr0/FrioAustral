@@ -4,12 +4,28 @@ const fs = require("fs");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const HOTMART = "https://pay.hotmart.com/M101158236T?hotfeature=51&_hi=eyJjaWQiOiIxNzg1MzgyMDM2NDM2Mzg2MzI4NTI3NDY1NzU1NjUwIiwiYmlkIjoiMTc4NTM4MjAzNjQzNjM4NjMyODUyNzQ2NTc1NTY1MCIsInNpZCI6Ijg3Mjg1YTEyOGI4MDRkNDRiNTQ0MmYzYjMwZjRkOGM1In0=.1794072662815";
+const HOTMART_CURSO = "https://pay.hotmart.com/M101158236T";
 
-test("fa-config.js deja la Academia apagada y usa la URL exacta de Hotmart", () => {
+test("fa-config.js deja la Academia apagada y cada curso lleva su hotmartCheckoutUrl", () => {
   const cfg = require("../assets/fa-config.js");
   assert.equal(cfg.ACADEMIA_ENABLED, false);
-  assert.equal(cfg.HOTMART_CHECKOUT_URL, HOTMART);
+  assert.equal(cfg.HOTMART_CHECKOUT_URL, undefined, "ya no hay un link global para todos los cursos");
+  assert.equal(cfg.DEFAULT_COURSE, "aire-acondicionado-automotriz");
+  assert.equal(cfg.COURSES["aire-acondicionado-automotriz"].hotmartCheckoutUrl, HOTMART_CURSO);
+  assert.equal(cfg.COURSES["parte-2-profesional"].hotmartCheckoutUrl, "", "sin link todavía: queda «Próximamente»");
+  assert.ok(!/hotfeature|_hi=/.test(JSON.stringify(cfg)), "sin parámetros de tracking");
+});
+
+test("los botones de compra de curso abren Hotmart en pestaña nueva y el curso sin link queda en «Próximamente»", () => {
+  for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html"))) {
+    const html = fs.readFileSync(path.join(root, f), "utf8");
+    for (const m of html.matchAll(/<a [^>]*data-course="aire-acondicionado-automotriz"[^>]*>/g)) {
+      assert.ok(m[0].includes(`href="${HOTMART_CURSO}"`) && m[0].includes('target="_blank"') && m[0].includes('rel="noopener"'), `${f}: ${m[0]}`);
+    }
+    assert.ok(!/academia\.html\?c=/.test(html), `${f}: aún enlaza a la academia para comprar`);
+  }
+  const cursos = fs.readFileSync(path.join(root, "cursos.html"), "utf8");
+  assert.match(cursos, /data-course="parte-2-profesional"/);
 });
 
 test("precios de la suscripción en un solo lugar", () => {
@@ -73,12 +89,12 @@ test("el código de la Academia se mantiene en el proyecto", () => {
   }
 });
 
-test("todas las páginas cargan fa-config, fa-gate y fa-flow", () => {
+test("todas las páginas cargan fa-config, fa-gate y fa-precios", () => {
   for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html") && x !== "admin.html")) {
     const html = fs.readFileSync(path.join(root, f), "utf8");
     assert.match(html, /assets\/fa-config\.js/, f);
     assert.match(html, /assets\/fa-gate\.js/, f);
-    assert.match(html, /assets\/fa-flow\.js/, f);
+    assert.match(html, /assets\/fa-precios\.js/, f);
   }
 });
 
@@ -98,7 +114,21 @@ test("Vercel Hobby: máximo 12 funciones en /api", () => {
 
 test("no hay claves en el repo (.env.example vacío en secretos)", () => {
   const env = fs.readFileSync(path.join(root, ".env.example"), "utf8");
-  for (const k of ["FLOW_API_KEY", "FLOW_SECRET_KEY", "SUPABASE_SERVICE_ROLE_KEY", "CRON_SECRET"]) {
+  for (const k of ["SUPABASE_SERVICE_ROLE_KEY", "HOTMART_HOTTOK", "HOTMART_PLAN_MAP"]) {
     assert.match(env, new RegExp(`^${k}=$`, "m"), k);
   }
+});
+
+test("no queda nada de Flow en el sitio, la API ni la configuración", () => {
+  const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+    if ([".git", "media", "tests", "node_modules", "supabase"].includes(e.name)) return [];
+    const p = path.join(d, e.name);
+    return e.isDirectory() ? walk(p) : /\.(html|js|json|txt|md|example|py|ps1|bat)$/.test(e.name) || e.name === ".env.example" ? [p] : [];
+  });
+  for (const f of walk(root)) {
+    const txt = fs.readFileSync(f, "utf8");
+    assert.ok(!/(?<![a-z-])flow(?![a-z-])|FLOW_|flowReady|fa-flow/i.test(txt), `${path.relative(root, f)} menciona Flow`);
+  }
+  assert.ok(!fs.existsSync(path.join(root, "api", "flow")) && !fs.existsSync(path.join(root, "api", "cron")) && !fs.existsSync(path.join(root, "scripts")));
+  assert.ok(!("crons" in JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"))));
 });

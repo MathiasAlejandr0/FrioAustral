@@ -12,7 +12,7 @@ const $=s=>document.querySelector(s);
 const bubbles=(m,who)=>m.map(x=>`<div class="fa-m ${x.de===who?'fa-u':'fa-a'}">${esc(x.t)}<small>${x.de==='u'?'Suscriptor':'Frío Austral'} · ${new Date(x.f).toLocaleString('es-CL')}</small></div>`).join('')||'<p class="fa-ej mono">Sin mensajes todavía.</p>';
 const page=document.body.dataset.fa;
 
-/* planes.html y Mi cuenta usan datos reales: assets/fa-flow.js y assets/fa-cuenta.js */
+/* planes.html y Mi cuenta usan datos reales: assets/fa-precios.js y assets/fa-cuenta.js */
 
 if(page==='admin'){
  let sel=null;const SK='fa_admin_session';

@@ -109,7 +109,7 @@ const enrollments={
  async mine(){const d=db(),u=me(d);if(!u)return [];return ok(d.enrollments.filter(e=>e.userId===u.id&&e.status==='active').map(e=>{const c=d.courses.find(x=>x.id===e.courseId);if(!c)return null;
   const ls=lessonsOf(c),lastId=(d.last[u.id]||{})[c.id],last=ls.find(l=>l.id===lastId)||ls.find(l=>!((d.progress[u.id]||{})[l.id]||{}).done)||ls[0];
   return {course:{id:c.id,slug:c.slug,title:c.title,cover:c.cover},progress:courseProgress(d,u,c),continueLesson:last&&{id:last.id,title:last.title},started:!!lastId,cert:d.certs.find(x=>x.userId===u.id&&x.courseId===c.id)||null}}).filter(Boolean))},
- /* PAGO DE PRUEBA: no cobra nada. En producción lo reemplaza el webhook de la pasarela (Mercado Pago / Flow / Webpay) */
+ /* PAGO DE PRUEBA: no cobra nada (Academia apagada; los cursos se venden y se ven en Hotmart) */
  async purchaseDemo(slug){const d=db(),u=me(d),c=findCourse(d,slug);if(!u)return fail('Ingresa para comprar.');if(!c||c.status!=='published')return fail('Este curso todavía no está a la venta.');
   if(enrolled(d,u,c))return {already:true};const e=d.enrollments.find(x=>x.userId===u.id&&x.courseId===c.id);
   if(e){e.status='active';e.revoked=null;e.source='demo'}else d.enrollments.push({id:uid('e'),userId:u.id,courseId:c.id,source:'demo',txn:uid('DEMO'),status:'active',created:now(),revoked:null});save(d);return {ok:true}}

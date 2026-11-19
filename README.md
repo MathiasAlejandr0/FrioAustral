@@ -5,11 +5,12 @@ Base: demo del cliente `demo-cliente` del 5 de noviembre de 2026.
 
 ## Qué hace hoy
 
-- **Academia desactivada** (el código sigue completo). Se reactiva con `ACADEMIA_ENABLED: true` en `assets/fa-config.js`.
-- **Comprar curso** → checkout de **Hotmart** (`HOTMART_CHECKOUT_URL` en `assets/fa-config.js`).
-- **Suscripción para preguntarle al equipo** → **Flow, cobro mensual automático** con tarjeta registrada, hasta que el cliente cancele. Cada plan tiene su `hotmartCheckoutUrl` en `assets/fa-config.js`: los botones «Suscribirme para preguntar» de `planes.html` y de la portada abren el link de pago de Hotmart del plan en una pestaña nueva. El alta con Flow y Mi cuenta siguen en el código para los suscriptores existentes.
-- **Mi cuenta** (`mi-cuenta.html`): el suscriptor ve su plan, estado, próximo cobro, tarjeta, preguntas disponibles del período, el **chat con el equipo**, sus **pagos**, y puede **cancelar**, **cambiar de plan** o **cambiar la tarjeta**. El **Plan Premium** suma **preguntas de otros usuarios** (solo lectura, sin nombre ni correo), pestaña para **agendar videollamadas** (el cliente propone día y hora; el equipo confirma), y secciones de **ebooks** y **biblioteca** (próximamente). El botón **Entrar a la videollamada** se habilita 10 minutos antes y abre la sala de meet.jit.si en una pestaña nueva, sin límite de tiempo.
-- **Panel del equipo** (`equipo.html`): suscriptores, preguntas por responder, responder, pagos, estado en Flow, solicitudes de videollamada (confirmar, proponer otra hora, cancelar o entrar en una pestaña nueva) y botón para crear los planes en Flow.
+- **Todo se vende en Hotmart. El sitio no cobra nada** (no hay pasarela de pago ni cobros automáticos en el sitio).
+- **Cursos**: cada curso tiene su `hotmartCheckoutUrl` en `assets/fa-config.js` → `COURSES`. El botón «Comprar en Hotmart» abre ese link en una pestaña nueva (`rel="noopener"`). El curso se ve en la plataforma de Hotmart (quien compra crea allí su usuario y contraseña): el sitio no da acceso a cursos ni pide cuenta para comprar. Si el link está vacío, el botón queda desactivado como «Próximamente».
+- **Suscripciones** (Aprendiz, Técnico, Premium): cada plan tiene su `hotmartCheckoutUrl` en `PLANS`. Hotmart avisa del pago al webhook `/api/hotmart/webhook` y el plan se **activa solo** para el correo del comprador.
+- **Mi cuenta** (`mi-cuenta.html`): crear cuenta / ingresar, ver el plan y su vigencia, chat con el equipo (con cupo según el plan), material de su plan y videollamadas (Premium).
+- **Panel del equipo** (`equipo.html`): suscriptores, preguntas por responder, responder y solicitudes de videollamada (confirmar, proponer otra hora, cancelar o entrar en una pestaña nueva).
+- **Academia desactivada** (código dormido; ya no se usa para vender ni dar acceso a cursos). Las páginas `academia`, `mi-academia`, `leccion`, `certificado` e `ingresar` redirigen a `cursos.html`.
 - `admin.html` es la maqueta anterior (catálogo, video y links guardados solo en el navegador). Muestra un aviso que apunta al panel real.
 
 ## Planes (precio en un solo lugar)
@@ -22,23 +23,30 @@ Base: demo del cliente `demo-cliente` del 5 de noviembre de 2026.
 | Plan Técnico | Intermedio | `pro` | $10.000 CLP | Preguntas ilimitadas |
 | Plan Premium | Premium | `premium` | $20.000 CLP | Ilimitadas + videollamadas + preguntas de otros + ebooks y biblioteca (próximamente) |
 
-- El período es el ciclo de cobro de Flow (si falta, los últimos 30 días). Solo cuentan los mensajes del cliente.
-- Flow no permite cambiar el monto de un plan con suscriptores: cada monto crea su propio plan (`fa-basico-5000`, …). Si cambias un precio, los nuevos suscriptores toman el nuevo plan y los antiguos siguen con el suyo.
+- El cupo de preguntas se cuenta por período pagado (la vigencia del acceso; si falta, los últimos 30 días). Solo cuentan los mensajes del cliente.
+- Cambiar un precio en `PLANS` solo cambia lo que se muestra en el sitio: el cobro real lo define el producto en Hotmart.
 
-## Flujo de la suscripción
+## Cómo se activa una suscripción (Hotmart)
 
-1. `planes.html` → el cliente elige plan, crea su cuenta (nombre, email, contraseña) o ingresa.
-2. `POST /api/account?action=start` crea el cliente en Flow (`customer/create`) y lo manda a registrar su tarjeta (`customer/register`).
-3. Flow vuelve a `POST /api/flow/card-return` → `customer/getRegisterStatus` → `subscription/create` (cobro mensual automático) → redirige a `mi-cuenta.html?alta=ok`.
-4. Cada pago de un importe llega a `POST /api/flow/webhook` (urlCallback de los planes) → `payment/getStatus` → se resincroniza la suscripción (`subscription/get`).
-5. Respaldo: cron diario `GET /api/cron/sync` (Vercel Cron, con `CRON_SECRET`) y resincronización al abrir Mi cuenta si pasaron 10 minutos.
-6. El cliente puede preguntar solo si la suscripción está vigente y el último cobro está pagado. Si cancela, queda vigente hasta el fin del período (`subscription/cancel` con `at_period_end=1`).
+1. En `planes.html` el cliente pulsa «Suscribirme para preguntar» y paga en el link de Hotmart de su plan.
+2. Hotmart envía el aviso (webhook v2.0.0) a `POST /api/hotmart/webhook` con el header `X-HOTMART-HOTTOK`; si no coincide con `HOTMART_HOTTOK` se responde 401.
+3. Con `PURCHASE_APPROVED` o `PURCHASE_COMPLETE` el plan queda **activo** para `buyer.email` en la tabla `plan_access` (por correo, tenga o no cuenta). Con `PURCHASE_CANCELED`, `PURCHASE_REFUNDED` o `PURCHASE_CHARGEBACK` se **desactiva**. `SUBSCRIPTION_CANCELLATION` lo deja activo solo hasta la fecha ya pagada (`date_next_charge`) o lo desactiva si ya pasó. Cada renovación mensual llega como un nuevo `PURCHASE_APPROVED` y extiende la vigencia.
+4. Es **idempotente** (el mismo evento dos veces no cambia nada; un evento más antiguo que el último aplicado se ignora) y todo queda en la tabla `hotmart_events`.
+5. La persona vuelve a **`https://frioaustralspa.cl/mi-cuenta.html?compra=ok`** (página de agradecimiento de cada producto en Hotmart): crea su cuenta con el **mismo correo con que pagó** (o ingresa). El plan se vincula a la cuenta al registrarse o iniciar sesión. Si todavía no llegó el aviso de Hotmart, ve «Tu pago está siendo verificado».
+6. `contenido.html` → *Accesos por plan* muestra las suscripciones, su estado y los últimos avisos; dar acceso a mano queda solo como respaldo.
+
+**Mapeo producto → plan.** Se hace con `data.product.id` (el número que va dentro del código del link de pago: `D108538114T` → `108538114`), con `data.product.ucode` o con `data.purchase.offer.code`. Por defecto se derivan de los `hotmartCheckoutUrl` de los planes (Aprendiz `D108538114T`, Técnico `F108559411V`, Premium `W108559868U`). Si el primer aviso real llega como «Producto sin plan» en la pestaña de avisos, se corrige sin tocar código con la variable `HOTMART_PLAN_MAP` (JSON: `{"<id, ucode u offer.code>": "basico|pro|premium"}`).
+
+### Conectar Hotmart
+- Hotmart → *Herramientas → Webhook (Postback)* → URL `https://frioaustralspa.cl/api/hotmart/webhook`, versión **2.0.0**, eventos: Compra aprobada, Compra completa, Compra cancelada, Compra reembolsada, Chargeback y Cancelación de suscripción.
+- Copiar el *hottok* a la variable `HOTMART_HOTTOK` en Vercel (Sensitive) y volver a publicar.
+- En cada producto de suscripción: página de agradecimiento / redirección → `https://frioaustralspa.cl/mi-cuenta.html?compra=ok`.
 
 ## Datos (Supabase)
 
-Proyecto dedicado **Frio Austral** (`kgxwjywupnnvceyziymj`, cuenta Supabase de Frío Austral). Migraciones aplicadas (todas aditivas): `20261112220000_suscripciones_mi_cuenta.sql`, `20261117130000_videollamadas.sql`, `20261119120000_material_planes_y_medios.sql` y `20261119121500_fa_has_plan_access_invoker.sql`.
+Proyecto dedicado **Frio Austral** (`kgxwjywupnnvceyziymj`, cuenta Supabase de Frío Austral). Migraciones aditivas: `20261112220000_suscripciones_mi_cuenta.sql`, `20261117130000_videollamadas.sql`, `20261119120000_material_planes_y_medios.sql`, `20261119121500_fa_has_plan_access_invoker.sql` y `20261119150000_hotmart_accesos.sql` (tablas `plan_access` y `hotmart_events`; **pendiente de aplicar** hasta tener el OK).
 
-Tablas `subscribers`, `messages`, `payments`, `admins`, todas con RLS: cada usuario solo puede **leer** lo suyo y nadie escribe desde el navegador; las escrituras pasan por `/api` con la service role, que aplica cupos y reglas.
+Tablas `subscribers`, `messages`, `admins`, `plan_access` y `hotmart_events`, todas con RLS: nadie escribe desde el navegador; las escrituras pasan por `/api` con la service role. La tabla `payments` (de cuando se cobraba con otra pasarela) sigue en la base pero ya no se usa.
 
 ## Variables de entorno
 
@@ -46,35 +54,27 @@ Ver `.env.example`. **Nunca** se suben claves a git.
 
 | Variable | Dónde se obtiene | Secreta |
 |---|---|---|
-| `FLOW_API_KEY`, `FLOW_SECRET_KEY` | Flow → Integraciones → Datos de integración (sandbox o producción) | Sí |
-| `FLOW_API_URL` | `https://sandbox.flow.cl/api` (pruebas) o `https://www.flow.cl/api` (real) | No |
-| `SITE_URL` | Dominio público, sin `/` final | No |
 | `SUPABASE_URL` | `https://kgxwjywupnnvceyziymj.supabase.co` | No |
 | `SUPABASE_ANON_KEY` | Supabase → Project Settings → API Keys (anon / publishable) | No |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys (service_role / secret) | **Sí** |
-| `ADMIN_EMAILS` | Emails del equipo que entran a `equipo.html`, separados por coma | No |
-| `CRON_SECRET` | Valor largo aleatorio | Sí |
+| `HOTMART_HOTTOK` | Hotmart → Herramientas → Webhook → token (hottok) | **Sí** |
+| `HOTMART_PLAN_MAP` | Opcional. JSON que corrige el mapeo producto/oferta → plan | No |
+| `ADMIN_EMAILS` | Correos del equipo (separados por coma) | No |
+| `SITE_URL` | `https://frioaustralspa.cl` | No |
 
 ## Pasar a producción (checklist)
 
-1. **Vercel**: en vercel.com (cuenta personal de Mathias) → *Add New → Project* → importar `MathiasAlejandr0/FrioAustral` (framework *Other*, sin build ni output). Plan Hobby alcanza (6 funciones, 1 cron diario).
-2. **Variables en Vercel** (Production y Preview): todas las de la tabla. `SUPABASE_SERVICE_ROLE_KEY`, `FLOW_SECRET_KEY` y `CRON_SECRET` como *Sensitive*. Para probar primero, deja `FLOW_API_URL=https://sandbox.flow.cl/api` con claves sandbox.
-3. **Supabase → Authentication → URL Configuration**: *Site URL* = `SITE_URL`; agrega `SITE_URL/mi-cuenta.html` en *Redirect URLs* (para recuperar contraseña). Opcional: SMTP propio en *Authentication → Emails* (el correo por defecto de Supabase tiene un límite bajo por hora).
-4. **Cuenta del equipo**: Supabase → *Authentication → Users → Add user* (email + contraseña, *Auto confirm*) para Guillermo, y pon ese email en `ADMIN_EMAILS`.
-5. **Deploy** (redeploy después de cargar variables).
-6. **Planes en Flow**: entra a `equipo.html` → *Verificar planes en Flow* (o `npm run flow:plans` con `.env.local`). Crea `fa-basico-5000`, `fa-pro-10000` y `fa-premium-20000` con el webhook `SITE_URL/api/flow/webhook`. Es idempotente.
-7. **Prueba en sandbox**: suscríbete en `planes.html` con una tarjeta de prueba de Flow, revisa que `mi-cuenta.html` quede *Activa*, envía una pregunta, respóndela desde `equipo.html`, cancela.
-8. **Producción**: cambia `FLOW_API_KEY`/`FLOW_SECRET_KEY` a las de producción y `FLOW_API_URL=https://www.flow.cl/api`, redeploy y repite el paso 6 (los planes de sandbox no existen en producción).
-9. **Dominio**: agrega el dominio en Vercel y actualiza `SITE_URL` y la URL de Supabase Auth.
-
-URLs que Flow usa (se configuran solas desde el código):
-- Retorno del registro de tarjeta: `SITE_URL/api/flow/card-return`
-- Webhook de pagos de los planes: `SITE_URL/api/flow/webhook`
+1. **Vercel**: proyecto `frioaustralweb` (framework *Other*, sin build ni output). Variables en *Production* y *Preview*: las de la tabla; `SUPABASE_SERVICE_ROLE_KEY` y `HOTMART_HOTTOK` como *Sensitive*.
+2. **Supabase → Authentication → URL Configuration**: *Site URL* = `SITE_URL`; agrega `SITE_URL/mi-cuenta.html` en *Redirect URLs* (para recuperar contraseña).
+3. **Migración** `20261119150000_hotmart_accesos.sql` (aditiva) aplicada en el proyecto de Supabase de Frío Austral.
+4. **Cuenta del equipo**: Supabase → *Authentication → Users → Add user* (email + contraseña, *Auto confirm*) y su email en `ADMIN_EMAILS`.
+5. **Hotmart**: webhook y páginas de agradecimiento (ver arriba). Pega los links de cada curso en `COURSES` (`hotmartCheckoutUrl`) cuando existan.
+6. **Dominio**: agrégalo en Vercel y actualiza `SITE_URL` y la URL de Supabase Auth.
 
 ## Probar en local
 
 ```bash
-npm test                   # pruebas (sin red: Flow y Supabase simulados)
+npm test                   # pruebas (sin red: Supabase y Hotmart simulados)
 python servidor_demo.py    # sitio estático (sin /api)
 ```
 
@@ -92,7 +92,7 @@ No se modificaron `D:\PROYECTOS\frio-austral\demo-cliente`, `05-premium` ni `05-
 
 - **Material por plan**: se sube un archivo (PDF, EPUB, ZIP, Word, Excel, PowerPoint, texto, imagen o video, hasta 50 MB), se le pone título, categoría (Ebook, Biblioteca, Guía, Video, Recurso) y se elige a qué planes va (uno o varios). Los suscriptores lo ven en **Mi cuenta → Material** (y en Ebooks / Biblioteca del Plan Premium) y lo descargan con un enlace firmado de 2 minutos. Se puede ocultar, editar o eliminar.
 - **Fotos y videos**: cada espacio del catálogo `assets/fa-slots.js` (portadas, secciones, galería del taller, reels, video de bienvenida y video del curso) se puede cambiar subiendo un archivo nuevo. «Volver al original» borra el archivo subido. Si no hay archivo nuevo o no carga, el sitio usa el archivo de siempre (`assets/fa-medios.js`).
-- **Accesos por plan**: la suscripción se paga en Hotmart y este sitio no recibe aviso del pago. Quien compra crea su cuenta con el mismo correo y el equipo le asigna el plan y la fecha hasta la que tiene acceso (normalmente un mes por pago). Quien paga con Flow se actualiza solo y no se puede cambiar a mano.
+- **Accesos por plan**: las suscripciones y su estado (activo, cancelado, vencido) que llegan solos desde el webhook de Hotmart, más los últimos avisos recibidos. Dar acceso a mano a un correo queda como respaldo.
 
 ### Cómo se controla el acceso
 

@@ -1,13 +1,10 @@
-/* Pruebas de la API con Supabase y Flow simulados (sin red). */
+/* Pruebas de la API con Supabase simulado (sin red). */
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 
 process.env.SUPABASE_URL = "https://db.test";
 process.env.SUPABASE_ANON_KEY = "anon";
 process.env.SUPABASE_SERVICE_ROLE_KEY = "service";
-process.env.FLOW_API_KEY = "k";
-process.env.FLOW_SECRET_KEY = "s";
-process.env.FLOW_API_URL = "https://sandbox.flow.cl/api";
 process.env.SITE_URL = "https://sitio.test";
 
 const USER = { id: "11111111-1111-1111-1111-111111111111", email: "cliente@test.cl" };
@@ -15,9 +12,9 @@ let db, calls;
 
 function reset() {
   db = {
-    subscribers: [{ user_id: USER.id, email: USER.email, nombre: "Cliente", plan: "basico", status: "activa", flow_customer_id: "cus_1", flow_subscription_id: "sus_1", period_start: "2026-11-01T03:00:00Z", period_end: "2099-12-01T03:00:00Z", synced_at: new Date().toISOString(), card_last4: "1234" }],
+    subscribers: [{ user_id: USER.id, email: USER.email, nombre: "Cliente", plan: "basico", status: "activa", period_start: "2026-11-01T03:00:00Z", period_end: "2099-12-01T03:00:00Z" }],
     messages: [],
-    payments: [],
+    plan_access: [],
     admins: [],
   };
   calls = [];
@@ -63,10 +60,6 @@ global.fetch = async (url, init = {}) => {
       out.forEach((r) => Object.assign(r, patch));
       return json(200, out);
     }
-  }
-  if (u.host === "sandbox.flow.cl") {
-    if (u.pathname.endsWith("/subscription/cancel")) return json(200, { subscriptionId: "sus_1" });
-    if (u.pathname.endsWith("/subscription/get")) return json(200, { subscriptionId: "sus_1", planId: "fa-basico-5000", status: 1, morose: 0, cancel_at_period_end: 1, period_start: "2026-11-01 00:00:00", period_end: "2099-12-01 00:00:00", invoices: [{ id: 9, status: 1, amount: 5000, created: "2026-11-01 00:00:00" }] });
   }
   return json(404, { message: "no mock " + url });
 };
@@ -116,24 +109,32 @@ test("suscripción morosa no puede preguntar", async () => {
   assert.equal(r.body.code, "inactive");
 });
 
-test("me devuelve plan, cupo, chat y pagos", async () => {
+test("me devuelve plan, cupo y chat", async () => {
   const r = await call(account, { url: "/api/account?action=me" });
   assert.equal(r.status, 200);
   assert.equal(r.body.subscriber.planName, "Plan Aprendiz");
   assert.equal(r.body.subscriber.amount, 5000);
   assert.equal(r.body.quota.limit, 3);
   assert.ok(Array.isArray(r.body.messages));
-  assert.ok(Array.isArray(r.body.payments));
+  assert.equal(r.body.payments, undefined);
 });
 
-test("cancelar llama a Flow subscription/cancel al final del período", async () => {
-  const r = await call(account, { method: "POST", url: "/api/account?action=cancel", body: {} });
-  assert.equal(r.status, 200, JSON.stringify(r.body));
-  const c = calls.find((x) => x.url.endsWith("/subscription/cancel"));
-  assert.ok(c);
-  assert.equal(new URLSearchParams(c.body).get("at_period_end"), "1");
-  assert.equal(r.body.subscriber.status, "cancelada_fin_periodo");
-  assert.equal(db.payments.length, 1);
+test("ya no existen las acciones de cobro (alta, cancelar, cambiar plan o tarjeta)", async () => {
+  for (const action of ["start", "cancel", "change-plan", "change-card"]) {
+    const r = await call(account, { method: "POST", url: `/api/account?action=${action}`, body: { plan: "pro" } });
+    assert.equal(r.status, 404, action);
+  }
+});
+
+test("me vincula el plan activado por Hotmart al registrarse con el mismo correo", async () => {
+  db.subscribers[0].plan = null; db.subscribers[0].status = "sin_suscripcion"; db.subscribers[0].period_end = null;
+  let r = await call(account, { url: "/api/account?action=me" });
+  assert.equal(r.body.subscriber.hasSubscription, false, "sin plan: el panel muestra «pago en verificación»");
+  assert.equal(r.body.canAsk, false);
+  db.plan_access.push({ id: "a1", email: USER.email, plan: "pro", status: "activa", period_start: "2026-11-19T00:00:00Z", period_end: "2099-01-01T00:00:00Z", updated_at: "2026-11-19T00:00:00Z" });
+  r = await call(account, { url: "/api/account?action=me" });
+  assert.equal(r.body.subscriber.planName, "Plan Técnico");
+  assert.equal(r.body.canAsk, true);
 });
 
 test("los errores no filtran detalles internos", async () => {

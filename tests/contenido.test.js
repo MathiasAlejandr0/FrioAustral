@@ -1,4 +1,4 @@
-/* Material por plan, fotos/videos del sitio y accesos manuales (Hotmart): reglas y control de acceso.
+/* Material por plan, fotos/videos del sitio y accesos por plan (respaldo manual): reglas y control de acceso.
    Supabase (rest y storage) simulado, sin red. */
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
@@ -17,7 +17,6 @@ const U = {
   apr: { id: "11111111-1111-4111-8111-111111111111", email: "apr@test.cl" },
   prem: { id: "22222222-2222-4222-8222-222222222222", email: "prem@test.cl" },
   old: { id: "33333333-3333-4333-8333-333333333333", email: "old@test.cl" },
-  flow: { id: "44444444-4444-4444-8444-444444444444", email: "flow@test.cl" },
 };
 const MAT_E = "99999999-9999-4999-8999-999999999991", MAT_G = "99999999-9999-4999-8999-999999999992";
 let db, files, removed;
@@ -30,13 +29,14 @@ function reset() {
       { user_id: U.apr.id, email: U.apr.email, plan: "basico", status: "activa", period_end: fut },
       { user_id: U.prem.id, email: U.prem.email, plan: "premium", status: "activa", period_end: fut },
       { user_id: U.old.id, email: U.old.email, plan: "premium", status: "activa", period_end: "2020-01-01T00:00:00Z" },
-      { user_id: U.flow.id, email: U.flow.email, plan: "pro", status: "activa", period_end: fut, flow_subscription_id: "sus_9" },
     ],
     plan_materials: [
       { id: MAT_E, title: "Ebook", description: "", category: "ebook", storage_path: `${MAT_E}/ebook.pdf`, file_name: "ebook.pdf", content_type: "application/pdf", size_bytes: 10, plans: ["premium"], published: true, created_at: "2026-11-19T00:00:00Z" },
       { id: MAT_G, title: "Guía", description: "", category: "guia", storage_path: `${MAT_G}/guia.pdf`, file_name: "guia.pdf", content_type: "application/pdf", size_bytes: 10, plans: ["basico", "pro", "premium"], published: true, created_at: "2026-11-18T00:00:00Z" },
     ],
     site_media: [],
+    plan_access: [],
+    hotmart_events: [],
   };
   files = new Set([`plan-material/${MAT_E}/ebook.pdf`, `plan-material/${MAT_G}/guia.pdf`]);
   removed = [];
@@ -70,7 +70,7 @@ global.fetch = async (url, init = {}) => {
     if (method === "GET") return json(200, sel());
     if (method === "POST") {
       const key = u.searchParams.get("on_conflict");
-      const out = JSON.parse(init.body).map((r) => { const ex = key && rows.find((x) => x[key] === r[key]); if (ex) { Object.assign(ex, r); return ex; } const n = { id: "77777777-7777-4777-8777-777777777777", created_at: "now", ...r }; rows.push(n); return n; });
+      const out = JSON.parse(init.body).map((r) => { const ex = key && rows.find((x) => x[key] === r[key]); if (ex) { Object.assign(ex, r); return ex; } const n = { id: require("node:crypto").randomUUID(), created_at: "now", ...r }; rows.push(n); return n; });
       return json(201, out);
     }
     if (method === "PATCH") { const out = sel(); out.forEach((r) => Object.assign(r, JSON.parse(init.body))); return json(200, out); }
@@ -189,27 +189,42 @@ test("fotos y videos: espacios del catálogo, tipos por espacio, guardar, reempl
   assert.deepEqual((await call(account, { url: "/api/account?action=site-media" })).body.items, {});
 });
 
-test("accesos manuales (Hotmart): asignar, quitar y respetar a quienes pagan con Flow", async () => {
-  const grant = (b) => call(admin, { method: "POST", url: "/api/admin?action=grant-plan", as: "admin", body: b });
-  assert.equal((await grant({ user: U.apr.id, plan: "oro", until: "2099-01-01" })).status, 400);
-  assert.equal((await grant({ user: U.apr.id, plan: "pro", until: "2020-01-01" })).status, 400);
-  assert.equal((await grant({ user: U.apr.id, plan: "pro", until: "31/12/2099" })).status, 400);
-  assert.equal((await grant({ user: U.flow.id, plan: "premium", until: "2099-01-01" })).status, 409, "Flow manda sobre ese suscriptor");
+test("accesos por plan: lista, respaldo manual por correo, quitar y vigencia", async () => {
+  const grant = (b) => call(admin, { method: "POST", url: "/api/admin?action=access-grant", as: "admin", body: b });
+  assert.equal((await grant({ email: U.apr.email, plan: "oro", until: "2099-01-01" })).status, 400);
+  assert.equal((await grant({ email: "no-es-correo", plan: "pro", until: "2099-01-01" })).status, 400);
+  assert.equal((await grant({ email: U.apr.email, plan: "pro", until: "2020-01-01" })).status, 400);
+  assert.equal((await grant({ email: U.apr.email, plan: "pro", until: "31/12/2099" })).status, 400);
+  assert.equal((await call(admin, { url: "/api/admin?action=access-list", as: "apr" })).status, 403, "solo el equipo");
   const until = new Date(Date.now() + 20 * 86400000).toISOString().slice(0, 10);
-  const ok = await grant({ user: U.apr.id, plan: "premium", until });
+  const ok = await grant({ email: "  APR@test.cl ", plan: "premium", until });
   assert.equal(ok.status, 200);
+  assert.equal(db.plan_access.length, 1);
+  assert.equal(db.plan_access[0].email, "apr@test.cl");
+  assert.equal(db.plan_access[0].source, "manual");
   assert.equal(db.subscribers[0].plan, "premium");
   assert.equal(db.subscribers[0].status, "activa");
   assert.equal(new Date(db.subscribers[0].period_end).getTime(), new Date(`${until}T23:59:59-03:00`).getTime(), "vence al terminar el día elegido (hora de Chile)");
-  assert.equal(ok.body.subscriber.manual, true);
   assert.ok((await call(account, { url: "/api/account?action=materials", as: "apr" })).body.items.some((m) => m.title === "Ebook"), "ya ve el ebook Premium");
+  const list = await call(admin, { url: "/api/admin?action=access-list", as: "admin" });
+  assert.equal(list.status, 200);
+  assert.equal(list.body.items[0].hasAccount, true);
+  assert.equal(list.body.items[0].active, true);
+  assert.equal(list.body.items[0].planName, "Plan Premium");
+  assert.ok(Array.isArray(list.body.events));
+  // acceso para un correo que todavía no tiene cuenta
+  assert.equal((await grant({ email: "nuevo@test.cl", plan: "pro", until })).status, 200);
+  assert.equal((await call(admin, { url: "/api/admin?action=access-list", as: "admin" })).body.items.find((i) => i.email === "nuevo@test.cl").hasAccount, false);
   // vencida por fecha: pierde el acceso
   db.subscribers[0].period_end = "2020-01-01T00:00:00Z";
   assert.equal((await call(account, { url: "/api/account?action=materials", as: "apr" })).status, 403);
-  db.subscribers[0].period_end = "2099-01-01T00:00:00Z";
-  assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=revoke-plan", as: "admin", body: { user: U.apr.id } })).status, 200);
+  // quitar
+  await grant({ email: U.apr.email, plan: "premium", until });
+  const id = db.plan_access.find((r) => r.email === U.apr.email).id;
+  assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=access-revoke", as: "admin", body: { id: "no" } })).status, 400);
+  assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=access-revoke", as: "admin", body: { id } })).status, 200);
+  assert.equal(db.subscribers[0].status, "cancelada");
   assert.equal((await call(account, { url: "/api/account?action=materials", as: "apr" })).status, 403, "sin acceso tras quitar el plan");
-  assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=revoke-plan", as: "admin", body: { user: U.flow.id } })).status, 409);
 });
 
 test("catálogo de espacios: todos los archivos existen en el sitio y los ids son únicos", () => {

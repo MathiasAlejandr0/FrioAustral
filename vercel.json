@@ -1,9 +1,6 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
-  "crons": [
-    { "path": "/api/cron/sync", "schedule": "0 10 * * *" }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",
