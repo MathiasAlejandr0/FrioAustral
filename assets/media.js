@@ -18,12 +18,15 @@ const fix=v=>{const n=v.dataset.media,o=ovr(n),t=v.querySelector('track');
  const next=from=>{if(from!==i||i+1>=st.length||Date.now()-last<300)return;last=Date.now();i++;apply();v.load();v.dispatchEvent(new Event('fa-fallback'))};
  v.addEventListener('error',()=>next(i));
  apply();
- if(!o&&t)t.src=MEDIA_BASE+n+'.es.vtt'};
+ if(!o&&t)t.src=MEDIA_BASE+n+'.es.vtt';
+ return ()=>next(i)};
 const capsOn=v=>{for(const t of v.textTracks)if(t.kind==='captions')t.mode='showing'};
 /* Hero V1: autoplay muteado + botón "Activar sonido" (reinicia en el frame 0).
-   Con sonido activado: fuera de vista => silencio; al volver => sonido. reduced-motion => solo poster, sin botón */
+   Con sonido activado: fuera de vista => silencio; al volver => sonido.
+   reduced-motion (p.ej. Windows con "Efectos de animación" apagado o "mejor rendimiento"): no hay autoplay,
+   pero el video queda disponible con el botón "Reproducir video" visible. Nunca queda solo el poster sin salida. */
 function hero(){const v=document.querySelector('.hero video.hero-vid[data-media]');const btn=document.querySelector('.hero .fa-sound');
- if(!v||rm){if(btn)btn.hidden=true;return}
+ if(!v){if(btn)btn.hidden=true;return}
  const hb=v.closest('.hero');
  const pi=document.querySelector('.fa-hero-poster img');v.poster=(pi&&pi.currentSrc)||'media/img/i1-hero-poster-960.webp';
  /* controles agrupados en una zona libre (nunca sobre la cara): reproducir / sonido / subtítulos */
@@ -32,17 +35,24 @@ function hero(){const v=document.querySelector('.hero video.hero-vid[data-media]
  play.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Reproducir video</span>';
  const cc=document.createElement('button');cc.type='button';cc.className='fa-sound fa-cc';cc.setAttribute('aria-pressed','true');cc.setAttribute('aria-label','Ocultar subtítulos');cc.innerHTML='<span>Subtítulos</span>';
  ctl.appendChild(play);if(btn)ctl.appendChild(btn);ctl.appendChild(cc);hb.appendChild(ctl);
- fix(v);v.preload='metadata';v.muted=true;v.autoplay=true;v.load();
+ const nextSrc=fix(v);v.preload='metadata';v.muted=true;v.autoplay=!rm;v.load();
  /* autoplay: si el navegador lo bloquea (Brave Shields, ahorro de datos, etc.) queda el poster y un botón que sí funciona */
- let started=false;
- v.addEventListener('playing',()=>{started=true;hb.classList.remove('fa-blocked');play.hidden=true;v.closest('.ph-img').classList.add('fa-playing')});
- const blocked=()=>{if(started)return;hb.classList.add('fa-blocked');play.hidden=false};
- const attempt=()=>{try{const p=v.play();if(p&&p.catch)p.catch(e=>{if(!e||e.name!=='AbortError')blocked()})}catch(e){blocked()}};
- attempt();setTimeout(()=>{if(!started&&v.paused)blocked()},3500);
+ let started=false,want=!rm,inView=true;
+ const ok=()=>{hb.classList.remove('fa-blocked');play.hidden=true};
+ v.addEventListener('playing',()=>{started=true;v.closest('.ph-img').classList.add('fa-playing')});
+ const blocked=()=>{hb.classList.add('fa-blocked');play.hidden=false};
+ const attempt=()=>{want=true;try{const p=v.play();if(p&&p.catch)p.catch(e=>{if(!e||e.name!=='AbortError')blocked()})}catch(e){blocked()}};
+ if(rm)blocked();else attempt();
+ /* vigilante: si el video no avanza (~3 s) aunque debería (autoplay pendiente sin promesa, decode atascado,
+    red lenta, etc.) se muestra el botón y se prueba la siguiente fuente una vez. Si vuelve a avanzar, se oculta. */
+ let lastT=v.currentTime,stuck=0,switched=false;
+ setInterval(()=>{if(!want||document.hidden||!inView)return;
+  if(v.currentTime!==lastT&&!v.paused){lastT=v.currentTime;stuck=0;if(started)ok();return}
+  if(++stuck===3){blocked();if(!switched&&!started){switched=true;nextSrc()}}},1000);
  v.addEventListener('fa-fallback',()=>{if(!started)attempt()});
- play.addEventListener('click',()=>{v.muted=true;attempt()});
- ['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{if(!started){v.muted=true;attempt()}},{once:true,passive:true}));
- let on=false,inView=true;
+ play.addEventListener('click',()=>{v.muted=true;stuck=0;attempt()});
+ if(!rm)['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{if(!started){v.muted=true;attempt()}},{once:true,passive:true}));
+ let on=false;
  const set=()=>{if(!btn)return;btn.setAttribute('aria-pressed',on?'true':'false');const t=on?'Silenciar':'Activar sonido';btn.setAttribute('aria-label',t);btn.querySelector('span').textContent=t};
  if(btn){btn.hidden=false;btn.addEventListener('click',()=>{on=!on;if(on){v.currentTime=0;v.muted=false;v.play().catch(()=>{on=false;v.muted=true;set()})}else v.muted=true;set()})}
  if('IntersectionObserver' in window){new IntersectionObserver(es=>es.forEach(e=>{inView=e.isIntersecting;if(on)v.muted=!inView}),{threshold:.35}).observe(v)}
