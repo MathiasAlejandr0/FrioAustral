@@ -33,7 +33,8 @@ function hero(){const v=document.querySelector('.hero video.hero-vid[data-media]
  const ctl=document.createElement('div');ctl.className='fa-ctl';
  const play=document.createElement('button');play.type='button';play.className='fa-sound fa-play';play.hidden=true;
  play.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span>Reproducir video</span>';
- const cc=document.createElement('button');cc.type='button';cc.className='fa-sound fa-cc';cc.setAttribute('aria-pressed','true');cc.setAttribute('aria-label','Ocultar subtítulos');cc.innerHTML='<span>Subtítulos</span>';
+ const cc=document.createElement('button');cc.type='button';cc.className='fa-sound fa-cc';cc.setAttribute('aria-pressed','true');cc.setAttribute('aria-label','Ocultar subtítulos');cc.title='Ocultar subtítulos';
+ cc.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10.5 10.2a2.2 2.2 0 1 0 0 3.6"/><path d="M16.5 10.2a2.2 2.2 0 1 0 0 3.6"/><path class="x" d="M4 20 20 4"/></svg>';
  ctl.appendChild(play);if(btn)ctl.appendChild(btn);ctl.appendChild(cc);hb.appendChild(ctl);
  const nextSrc=fix(v);v.preload='metadata';v.muted=true;v.autoplay=!rm;v.load();
  /* autoplay: si el navegador lo bloquea (Brave Shields, ahorro de datos, etc.) queda el poster y un botón que sí funciona */
@@ -53,12 +54,12 @@ function hero(){const v=document.querySelector('.hero video.hero-vid[data-media]
  play.addEventListener('click',()=>{v.muted=true;stuck=0;attempt()});
  if(!rm)['pointerdown','keydown','touchend'].forEach(ev=>addEventListener(ev,()=>{if(!started){v.muted=true;attempt()}},{once:true,passive:true}));
  let on=false;
- const set=()=>{if(!btn)return;btn.setAttribute('aria-pressed',on?'true':'false');const t=on?'Silenciar':'Activar sonido';btn.setAttribute('aria-label',t);btn.querySelector('span').textContent=t};
+ const set=()=>{if(!btn)return;btn.setAttribute('aria-pressed',on?'true':'false');const t=on?'Silenciar':'Activar sonido';btn.setAttribute('aria-label',t);btn.title=t};
  if(btn){btn.hidden=false;btn.addEventListener('click',()=>{on=!on;if(on){v.currentTime=0;v.muted=false;v.play().catch(()=>{on=false;v.muted=true;set()})}else v.muted=true;set()})}
  if('IntersectionObserver' in window){new IntersectionObserver(es=>es.forEach(e=>{inView=e.isIntersecting;if(on)v.muted=!inView}),{threshold:.35}).observe(v)}
  /* subtítulos propios: sobre el torso, nunca sobre la cara; se pueden ocultar */
  const cap=document.createElement('p');cap.className='fa-cap';cap.setAttribute('aria-hidden','true');hb.appendChild(cap);
- cc.addEventListener('click',()=>{const off=!cap.classList.contains('off');cap.classList.toggle('off',off);cc.setAttribute('aria-pressed',off?'false':'true');cc.setAttribute('aria-label',off?'Mostrar subtítulos':'Ocultar subtítulos')});
+ cc.addEventListener('click',()=>{const off=!cap.classList.contains('off');cap.classList.toggle('off',off);cc.setAttribute('aria-pressed',off?'false':'true');const t=off?'Mostrar subtítulos':'Ocultar subtítulos';cc.setAttribute('aria-label',t);cc.title=t});
  const place=()=>{if(matchMedia('(max-width: 879px)').matches){cap.style.top='';cap.style.bottom='';cap.style.right=''}else{cap.style.top='';const w=hb.querySelector('.who');if(w){const hr=hb.getBoundingClientRect(),wr=w.getBoundingClientRect();cap.style.bottom=Math.round(hr.bottom-wr.top+14)+'px';cap.style.right=Math.round(hr.right-wr.right)+'px'}}};place();addEventListener('resize',place);
  const tr=v.textTracks[0];if(tr){tr.mode='hidden';tr.addEventListener('cuechange',()=>{const c=tr.activeCues&&tr.activeCues[0];cap.textContent=c?c.text.replace(/\n/g,' '):'';cap.classList.toggle('on',!!c)})}}
 /* V2 y otros: click-to-play, se cargan al acercarse al viewport */
