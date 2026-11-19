@@ -145,3 +145,33 @@ picture{display:block}
 /* Nuestro equipo (taller): 16:9 en todas las pantallas para no recortar a nadie */
 .fa-equipo{margin:24px 0 0;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
 .fa-equipo img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;object-position:50% 50%}
+
+/* ===== Hero premium (móvil y controles del video) =====
+   Reglas: ningún control ni subtítulo sobre la cara; la barra fija no tapa los botones del hero;
+   botones del mismo tamaño y sin partirse; encuadre del video con la cara centrada. */
+.fa-ctl{position:absolute;z-index:5;right:32px;top:92px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;max-width:calc(100% - 24px)}
+.fa-ctl .fa-sound{position:static;top:auto;right:auto;left:auto;white-space:nowrap}
+.fa-ctl .fa-sound[hidden]{display:none}
+.fa-ctl .fa-play{background:var(--red,#e0141f);border-color:transparent;color:#fff;padding:12px 20px;font-weight:700;box-shadow:0 10px 30px -10px rgba(224,20,31,.7)}
+.fa-ctl .fa-play:hover{background:var(--red2,#ff2a35);border-color:transparent}
+.hero.fa-blocked .fa-ctl .fa-sound:not(.fa-play):not(.fa-cc){display:none}
+.fa-ctl .fa-cc[aria-pressed="false"]{opacity:.7}
+.fa-cap.off{display:none}
+@media(max-width:879px){
+  section.hero{--hv:clamp(320px,88vw,400px);padding-top:calc(var(--hv) + 22px)!important;align-items:start!important;min-height:auto!important;padding-bottom:40px!important}
+  section.hero .ph-img{height:var(--hv)!important}
+  /* en el cuadro del video la cara está al 74% del ancho: a 100% queda casi centrada en el celular */
+  section.hero .fa-hero-poster img,section.hero .ph-img.fa-hero-media video.hero-vid{object-position:100% 50%!important}
+  section.hero::before{background:linear-gradient(180deg,rgba(5,7,11,.4) 0,rgba(5,7,11,0) 56px,rgba(5,7,11,0) calc(var(--hv) - 70px),#05070b var(--hv))!important}
+  /* controles abajo a la izquierda del video (zona libre), subtítulos sobre el torso, encima de los controles */
+  .fa-ctl{right:auto;left:14px;top:calc(var(--hv) - 54px);flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start}
+  .fa-sound,.fa-ctl .fa-sound{font-size:13px;padding:9px 14px}
+  .fa-cap{top:auto;bottom:calc(100% - var(--hv) + 62px);width:min(88%,420px);font-size:14px;padding:6px 12px}
+  section.hero h1{font-size:clamp(38px,11vw,46px)!important;line-height:.98!important;max-width:12ch!important;margin-top:0!important}
+  section.hero .lead{font-size:16px!important;line-height:1.55!important;margin-top:14px!important;max-width:34em}
+  section.hero .h-acts{display:grid!important;grid-template-columns:1fr;gap:10px;margin-top:22px!important}
+  section.hero .h-acts .btn{width:100%;flex:none;min-height:52px;justify-content:center;align-items:center;white-space:nowrap;font-size:16px!important;padding:0 20px!important}
+  section.hero .hero-stats{margin-top:24px!important;padding-top:16px!important;gap:8px}
+  section.hero .hero-stats b{font-size:clamp(19px,5.6vw,24px)!important;white-space:nowrap}
+  section.hero .hero-stats span{font-size:12.5px!important}
+}

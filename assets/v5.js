@@ -10,6 +10,8 @@ const setH=()=>document.documentElement.style.setProperty('--mbar-h',bar.offsetH
 let last=scrollY,block=false;
 const ends=[...document.querySelectorAll('.v5-cta,.footer')];
 const io=new IntersectionObserver(()=>{block=ends.some(e=>{const r=e.getBoundingClientRect();return r.top<innerHeight&&r.bottom>0});upd()});ends.forEach(e=>io.observe(e));
-function upd(){const y=scrollY,down=y>last+4,up=y<last-4;if(block||down)bar.classList.add('v5-hide');else if(up||y<80)bar.classList.remove('v5-hide');last=y}
-addEventListener('scroll',upd,{passive:true});
+/* la barra fija solo aparece después de pasar los botones del hero: no los tapa ni repite «Ver cursos» en la primera vista */
+const heroActs=document.querySelector('.hero .h-acts');
+function upd(){const y=scrollY,down=y>last+4,up=y<last-4;const inHero=heroActs&&heroActs.getBoundingClientRect().bottom>0;if(block||inHero||down)bar.classList.add('v5-hide');else if(up||y<80)bar.classList.remove('v5-hide');last=y}
+addEventListener('scroll',upd,{passive:true});upd();
 })();
