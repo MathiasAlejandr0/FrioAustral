@@ -22,21 +22,21 @@
     stopPoll();
     if (!authMode) authMode = qs.get("olvide") === "1" ? "forgot" : (qs.get("compra") || qs.get("registro") === "1") ? "signup" : "login";
     const mode = authMode;
-    const fromHotmart = qs.get("compra") === "ok";
+    const fromPago = qs.get("compra") === "ok";
     const heads = { login: "Ingresa a tu cuenta", signup: "Crea tu cuenta", forgot: "Recuperar contraseña" };
     const subs = {
       login: "Usa el correo y la contraseña con que creaste tu cuenta en este sitio.",
-      signup: "Crea tu cuenta con el <b>mismo correo con el que pagaste en Hotmart</b>: así activamos tu plan y ves tu material.",
+      signup: "Crea tu cuenta con el <b>mismo correo con el que pagaste</b>: así activamos tu plan y ves tu material.",
       forgot: "Te enviamos un correo con un enlace para crear una contraseña nueva.",
     };
     root.innerHTML = `
       <div class="fa-auth glass">
-        ${fromHotmart ? `<div class="fa-cta-msg ok" role="status"><b>¡Gracias por tu compra!</b> Para entrar a tu plan, crea tu cuenta aquí con el mismo correo con que pagaste en Hotmart (o ingresa si ya la tienes).</div>` : ""}
+        ${fromPago ? `<div class="fa-cta-msg ok" role="status"><b>¡Gracias por tu compra!</b> Para entrar a tu plan, crea tu cuenta aquí con el mismo correo con que pagaste (o ingresa si ya la tienes).</div>` : ""}
         <h2>${heads[mode]}</h2>
         <p class="fa-sub-note">${subs[mode]}</p>
         <form id="faLoginForm" novalidate>
           ${mode === "signup" ? `<label>Nombre<input name="nombre" autocomplete="name" required></label>` : ""}
-          <label>${mode === "signup" ? "Correo (el mismo de Hotmart)" : "Correo"}<input name="email" type="email" autocomplete="email" required></label>
+          <label>${mode === "signup" ? "Correo (el mismo del pago)" : "Correo"}<input name="email" type="email" autocomplete="email" required></label>
           ${mode === "forgot" ? "" : `<label>${mode === "signup" ? "Crea una contraseña" : "Contraseña"}<input name="password" type="password" ${mode === "signup" ? 'minlength="8" autocomplete="new-password"' : 'autocomplete="current-password"'} required></label>`}
           <p class="fa-err" role="alert" ${msg ? "" : "hidden"}>${esc(msg || "")}</p>
           <button class="btn btn-red" type="submit">${{ login: "Ingresar", signup: "Crear mi cuenta", forgot: "Enviar enlace" }[mode]}</button>
@@ -103,7 +103,7 @@
       return `<div class="fa-card glass fa-plancard" id="faVerifying">
         <div><span class="mono fa-ej">Tu plan</span><h3>Tu pago está siendo verificado</h3>
         <span class="fa-pill fa-warn">En verificación</span></div>
-        <p class="fa-sub-note">Tu cuenta (<b>${esc(s.email)}</b>) todavía no tiene un plan activado. Cuando Hotmart confirme tu pago, el plan se activa solo y verás aquí tu plan y tu material; normalmente toma unos minutos. Recuerda que debes usar el <b>mismo correo con el que pagaste en Hotmart</b>.</p>
+        <p class="fa-sub-note">Tu cuenta (<b>${esc(s.email)}</b>) todavía no tiene un plan activado. Cuando se confirme tu pago, el plan se activa solo y verás aquí tu plan y tu material; normalmente toma unos minutos. Recuerda que debes usar el <b>mismo correo con el que pagaste</b>.</p>
         <div class="fa-row"><button class="btn btn-line btn-sm" id="faRefresh">Actualizar</button><a class="btn btn-red btn-sm" href="planes.html">Ver planes</a></div>
       </div>`;
     }
@@ -113,7 +113,7 @@
       <div class="fa-plan-top"><div><span class="mono fa-ej">Tu plan${(PLANS[s.plan] && PLANS[s.plan].label) ? " · " + esc(PLANS[s.plan].label) : ""}</span><h3>${esc(s.planName || "")}</h3></div>
       <span class="fa-pill ${st[1]}">${esc(st[0])}</span></div>
       <dl class="fa-dl"><div><dt>${gone ? "Terminó el" : "Acceso hasta"}</dt><dd>${s.periodEnd ? fdate(s.periodEnd) : "—"}</dd></div></dl>
-      <p class="fa-sub-note">${gone ? "Tu acceso terminó. Renueva tu plan en Hotmart para volver a preguntar y ver el material." : "Tu plan se paga en Hotmart y se renueva allí con cada pago. Para cambiarlo o cancelarlo, hazlo desde Hotmart o escríbele al equipo por el chat."}</p>
+      <p class="fa-sub-note">${gone ? "Tu acceso terminó. Renueva tu plan para volver a preguntar y ver el material." : "Tu plan se paga de forma segura y se renueva con cada pago. Para cambiarlo o cancelarlo, escríbele al equipo por el chat."}</p>
       ${gone ? `<div class="fa-row"><a class="btn btn-red btn-sm" href="planes.html">Ver planes</a></div>` : ""}
     </div>`;
   }
@@ -135,8 +135,8 @@
       || `<p class="fa-ej mono">Aún no hay mensajes. Escribe tu primera pregunta: describe el vehículo (marca, modelo, año), el síntoma y lo que ya revisaste.</p>`;
     let block = "";
     if (!st.subscriber.hasSubscription) block = `Tu pago está siendo verificado: cuando se active tu plan podrás preguntar aquí. <a class="btn btn-red btn-sm" href="planes.html">Ver planes</a>`;
-    else if (!st.canAsk) block = "Tu suscripción no está activa. Renueva tu plan en Hotmart para seguir preguntando.";
-    else if (!st.quota.unlimited && st.quota.left <= 0) block = `Usaste tus ${st.quota.limit} preguntas de este período. Para seguir preguntando, pásate al Plan Técnico en Hotmart.`;
+    else if (!st.canAsk) block = "Tu suscripción no está activa. Renueva tu plan para seguir preguntando.";
+    else if (!st.quota.unlimited && st.quota.left <= 0) block = `Usaste tus ${st.quota.limit} preguntas de este período. Para seguir preguntando, pásate al Plan Técnico.`;
     return `<div class="fa-chat" id="faChat" aria-live="polite">${msgs}</div>
       ${block ? `<div class="fa-block">${block}</div>` : ""}
       <form class="fa-input" id="faMsgForm"><textarea id="faMsg" rows="2" maxlength="4000" placeholder="Escribe tu pregunta…" ${block ? "disabled" : ""} required></textarea><button class="btn btn-red btn-sm" ${block ? "disabled" : ""}>Enviar</button></form>

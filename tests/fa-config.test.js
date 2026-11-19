@@ -16,7 +16,7 @@ test("fa-config.js deja la Academia apagada y cada curso lleva su hotmartCheckou
   assert.ok(!/hotfeature|_hi=/.test(JSON.stringify(cfg)), "sin parámetros de tracking");
 });
 
-test("los botones de compra de curso abren Hotmart en pestaña nueva y el curso sin link queda en «Próximamente»", () => {
+test("los botones de compra de curso abren el pago en pestaña nueva y el curso sin link queda en «Próximamente»", () => {
   for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html"))) {
     const html = fs.readFileSync(path.join(root, f), "utf8");
     for (const m of html.matchAll(/<a [^>]*data-course="aire-acondicionado-automotriz"[^>]*>/g)) {
@@ -143,7 +143,7 @@ test("fa-gate.js se ejecuta completo (oculta Academia y deja «Próximamente») 
       addEventListener() {}, get textContent() { return this._t; }, set textContent(v) { this._t = v; }, at };
   };
   const academia = mk({ href: "academia.html" }, "Academia");
-  const soon = mk({ "data-course": "parte-2-profesional" }, "Comprar en Hotmart");
+  const soon = mk({ "data-course": "parte-2-profesional" }, "Comprar curso");
   const doc = { readyState: "complete", addEventListener() {}, querySelectorAll: (sel) =>
     sel.startsWith("a[data-course") ? [soon] : sel === "a[href]" ? [academia] : [] };
   const win = { FA_CONFIG: require("../assets/fa-config.js") };

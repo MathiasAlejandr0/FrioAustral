@@ -1,7 +1,7 @@
 /* Configuración pública de Frío Austral (la usan el navegador y las funciones de /api).
 
    TODO SE VENDE EN HOTMART. El sitio no cobra nada:
-   - CURSOS (COURSES): cada curso tiene su hotmartCheckoutUrl. El botón «Comprar en Hotmart» abre ese link
+   - CURSOS (COURSES): cada curso tiene su hotmartCheckoutUrl. El botón «Comprar curso» abre ese link
      en una pestaña nueva. El curso se ve en la plataforma de Hotmart (quien compra crea allí su usuario);
      el sitio no da acceso a cursos. Si hotmartCheckoutUrl está vacío, el botón queda desactivado
      como «Próximamente» (sin links rotos).

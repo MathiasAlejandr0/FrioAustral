@@ -181,19 +181,19 @@
       return `<tr><td><b>${esc(r.buyerName || r.email)}</b><br><small class="fa-sub-note">${esc(r.email)}</small></td>
         <td>${esc(r.planName)}<br><span class="fa-pill ${live[1]}">${esc(live[0])}</span></td>
         <td>${r.periodEnd ? esc(fdate(r.periodEnd)) : "—"}</td>
-        <td><small class="fa-sub-note">${r.source === "manual" ? "A mano" : "Hotmart"} · ${r.hasAccount ? "ya tiene cuenta" : "aún sin cuenta"}</small></td>
+        <td><small class="fa-sub-note">${r.source === "manual" ? "A mano" : "Pago en línea"} · ${r.hasAccount ? "ya tiene cuenta" : "aún sin cuenta"}</small></td>
         <td>${r.status !== "cancelada" ? `<button type="button" class="btn btn-line btn-sm fa-danger" data-revoke="${esc(r.id)}">Quitar</button>` : ""}</td></tr>`;
     }).join("");
     const ev = d.events.map((e) => `<tr><td>${esc(fdate(e.received_at, true))}</td><td>${esc(e.event)}</td><td>${esc(e.email || "—")}</td><td>${esc(e.plan ? pname(e.plan) : "—")}</td><td>${esc(OUTCOME[e.outcome] || e.outcome)}</td></tr>`).join("");
     return `<section class="fa-card glass"><span class="fa-ej mono">Suscripciones</span>
-      <p class="fa-sub-note">Los planes se pagan en Hotmart y <b>se activan solos</b>: cuando Hotmart confirma el pago, el plan queda activo para el correo del comprador y se vincula a su cuenta cuando entra a <b>Mi cuenta</b> con ese correo. Los reembolsos, cancelaciones y contracargos lo desactivan solos.</p>
-      ${d.hottokConfigured ? "" : `<p class="fa-cta-msg bad" role="status">Falta conectar Hotmart: el sitio todavía no tiene el token del webhook (HOTMART_HOTTOK), por eso no se activa ningún plan automáticamente.</p>`}
+      <p class="fa-sub-note">Los planes se pagan en línea y <b>se activan solos</b>: cuando se confirma el pago, el plan queda activo para el correo del comprador y se vincula a su cuenta cuando entra a <b>Mi cuenta</b> con ese correo. Los reembolsos, cancelaciones y contracargos lo desactivan solos.</p>
+      ${d.hottokConfigured ? "" : `<p class="fa-cta-msg bad" role="status">Falta conectar el aviso automático de pagos: el sitio todavía no tiene el token del webhook, por eso no se activa ningún plan automáticamente.</p>`}
       <input id="faSubQ" placeholder="Buscar nombre o email" value="${esc(subQ)}">
-      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan</th><th>Vigente hasta</th><th>Origen</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="5" class="fa-sub-note">Todavía no hay compras confirmadas por Hotmart.</td></tr>`}</tbody></table></div></section>
-      <section class="fa-card glass"><span class="fa-ej mono">Últimos avisos de Hotmart</span>
+      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan</th><th>Vigente hasta</th><th>Origen</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="5" class="fa-sub-note">Todavía no hay compras confirmadas.</td></tr>`}</tbody></table></div></section>
+      <section class="fa-card glass"><span class="fa-ej mono">Últimos avisos de pago</span>
       <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Fecha</th><th>Evento</th><th>Correo</th><th>Plan</th><th>Resultado</th></tr></thead><tbody>${ev || `<tr><td colspan="5" class="fa-sub-note">Aún no ha llegado ningún aviso.</td></tr>`}</tbody></table></div></section>
       <details class="fa-card glass"><summary><b>Respaldo: dar acceso a mano</b></summary>
-        <p class="fa-sub-note">Solo si Hotmart no avisó por alguna razón. Escribe el correo con que la persona pagó.</p>
+        <p class="fa-sub-note">Solo si el aviso de pago no llegó por alguna razón. Escribe el correo con que la persona pagó.</p>
         <form class="fa-grant" id="faGrant"><label class="fa-inline">Correo <input type="email" name="email" required></label>
           <select name="plan">${PK.map((k) => `<option value="${k}">${esc(pname(k))}</option>`).join("")}</select>
           <label class="fa-inline">Hasta <input type="date" name="until" value="${esc(plus(31))}" required></label>
