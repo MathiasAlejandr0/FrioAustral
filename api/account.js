@@ -10,6 +10,7 @@
  *   GET  /api/account?action=community&q=                               preguntas de otros usuarios (Plan Premium, anonimizadas)
  *   GET  /api/account?action=materials                                  material asignado a MI plan (suscripción vigente)
  *   POST /api/account?action=material-url  {id}                         URL firmada (2 min) para descargar un material de mi plan
+ *   GET  /api/account?action=free-resources                             (público) recursos gratis publicados (gratis.html)
  *   GET  /api/account?action=site-media                                 (público) fotos y videos del sitio cambiados desde el panel
  */
 const plans = require("./_lib/plans");
@@ -19,6 +20,7 @@ const ACC = require("./_lib/access");
 const V = require("./_lib/video");
 const C = require("./_lib/content");
 const ST = require("./_lib/storage");
+const F = require("./_lib/free");
 const { readBody, send, bearer, queryOf, handle } = require("./_lib/http");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -198,12 +200,26 @@ async function siteMedia(req, res) {
   res.end(JSON.stringify({ ok: true, items }));
 }
 
+/* Recursos gratis publicados (público, sin sesión). Si la base de datos no responde, la lista queda vacía. */
+async function freeResources(req, res) {
+  let items = [];
+  try {
+    const rows = await rest("free_resources?select=id,title,description,kind,cover_path,file_path,file_name,content_type,size_bytes,video_url,created_at&published=eq.true&order=created_at.desc&limit=100");
+    items = (rows || []).map((r) => F.publicFree(r));
+  } catch (e) { items = []; }
+  res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300");
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ ok: true, items }));
+}
+
 const ROUTES = { me, message, community, videos, "video-request": videoRequest, "video-accept": videoAccept, "video-cancel": videoCancel, materials, "material-url": materialUrl };
 
 module.exports = handle(async (req, res) => {
   const action = String(queryOf(req).action || "");
   if (action === "signup") return signup(req, res);
   if (action === "site-media") return siteMedia(req, res);
+  if (action === "free-resources") return freeResources(req, res);
   const fn = ROUTES[action];
   if (!fn) throw new HttpError(404, "Acción no encontrada.", "not_found");
   const user = await getUserFromToken(bearer(req));

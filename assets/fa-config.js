@@ -64,7 +64,7 @@
         tagline: "Ideal para quienes están comenzando en el mundo del aire acondicionado automotriz.",
         benefits: [
           "3 preguntas mensuales.",
-          "Acceso a la plataforma digital.",
+          "Acceso a tu panel de suscriptor.",
           "Resolución de dudas técnicas.",
         ],
         hotmartCheckoutUrl: "https://pay.hotmart.com/D108538114T",
@@ -77,7 +77,7 @@
         tagline: "Ideal para quienes quieren aprender constantemente y resolver todas sus dudas.",
         benefits: [
           "Preguntas ilimitadas.",
-          "Acceso a la plataforma digital.",
+          "Acceso a tu panel de suscriptor.",
           "Resolución de consultas técnicas.",
         ],
         hotmartCheckoutUrl: "https://pay.hotmart.com/F108559411V",
