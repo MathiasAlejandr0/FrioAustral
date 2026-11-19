@@ -181,3 +181,37 @@ test("me del Plan Premium expone los beneficios extra", async () => {
   assert.equal(r.body.features.ebooks_gratis, true);
   assert.equal(r.body.features.biblioteca, true);
 });
+
+/* ---------- rediseño de Mi cuenta: respuestas nuevas y cambio de plan (cambios de API aditivos) ---------- */
+/* La base devuelve lo más nuevo primero (order=created_at.desc); el simulado no ordena, así que se siembra así. */
+const seedChat = () => {
+  db.messages.push(
+    { id: 4, user_id: USER.id, sender: "equipo", body: "Respuesta 2", created_at: "2026-11-11T11:00:00Z", read_by_client: false },
+    { id: 3, user_id: USER.id, sender: "cliente", body: "Pregunta 2", created_at: "2026-11-11T10:00:00Z", read_by_client: false },
+    { id: 2, user_id: USER.id, sender: "equipo", body: "Respuesta 1", created_at: "2026-11-10T11:00:00Z", read_by_client: true },
+    { id: 1, user_id: USER.id, sender: "cliente", body: "Pregunta 1", created_at: "2026-11-10T10:00:00Z", read_by_client: false },
+  );
+};
+
+test("me informa unreadReplies y NO marca las respuestas como leídas (ni al refrescar)", async () => {
+  seedChat();
+  for (let i = 0; i < 3; i++) {
+    const r = await call(account, { url: "/api/account?action=me" });
+    assert.equal(r.body.unreadReplies, 1);
+    assert.deepEqual(r.body.messages.map((m) => m.read), [true, true, true, false]);
+    assert.equal(r.body.messages[0].read_by_client, undefined);
+    assert.equal(r.body.messages[0].body, "Pregunta 1", "el contrato anterior se conserva");
+  }
+  assert.equal(db.messages[0].read_by_client, false);
+});
+
+test("action=read marca las respuestas como leídas y después unreadReplies es 0", async () => {
+  seedChat();
+  const bad = await call(account, { method: "GET", url: "/api/account?action=read" });
+  assert.equal(bad.status, 405);
+  const r = await call(account, { method: "POST", url: "/api/account?action=read", body: {} });
+  assert.equal(r.status, 200);
+  assert.equal(db.messages[0].read_by_client, true);
+  assert.equal((await call(account, { url: "/api/account?action=me" })).body.unreadReplies, 0);
+  assert.equal((await call(account, { method: "POST", url: "/api/account?action=read", token: "bad" })).status, 401);
+});

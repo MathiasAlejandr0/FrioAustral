@@ -1,0 +1,12 @@
+{
+  "name": "frio-austral-tests-e2e-mi-cuenta",
+  "private": true,
+  "description": "Pruebas de interfaz de Mi cuenta (Playwright + axe-core). Solo herramientas de prueba: no se despliegan.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.63.0"
+  }
+}

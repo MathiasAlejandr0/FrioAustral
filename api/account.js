@@ -1,7 +1,8 @@
 /**
  * API del panel "Mi cuenta" (suscriptor).
  *   POST /api/account?action=signup        {nombre, email, password}   crea la cuenta (sin sesión)
- *   GET  /api/account?action=me                                         estado, cupo y chat
+ *   GET  /api/account?action=me                                         estado, cupo, chat y respuestas nuevas (`unreadReplies`; no marca nada como leído)
+ *   POST /api/account?action=read                                       marca como leídas las respuestas del equipo (al abrir la conversación)
  *   POST /api/account?action=message       {body}                       envía una pregunta (respeta cupo)
  *   GET  /api/account?action=videos                                     videollamadas (Plan Premium)
  *   POST /api/account?action=video-request {when, note}                 pide una videollamada
@@ -9,7 +10,7 @@
  *   POST /api/account?action=video-cancel  {id}                         cancela la solicitud
  *   GET  /api/account?action=community&q=                               preguntas de otros usuarios (Plan Premium, anonimizadas)
  *   GET  /api/account?action=materials                                  material asignado a MI plan (suscripción vigente)
- *   POST /api/account?action=material-url  {id}                         URL firmada (2 min) para descargar un material de mi plan
+ *   POST /api/account?action=material-url  {id, inline?}                URL firmada (2 min) de un material de mi plan; con inline:true y un tipo que el navegador muestra (PDF, imagen, video, texto) se abre en pestaña en vez de descargarse
  *   GET  /api/account?action=free-resources                             (público) recursos gratis publicados (gratis.html)
  *   GET  /api/account?action=site-media                                 (público) fotos y videos del sitio cambiados desde el panel
  */
@@ -50,11 +51,13 @@ async function me(req, res, user) {
   if (await ACC.applyAccess(user.email).catch((e) => { console.error("[access]", e.code); return false; })) sub = await S.getSubscriber(user.id);
   const [quota, messages] = await Promise.all([
     S.quotaFor(sub),
-    rest(`messages?select=id,sender,body,created_at&user_id=eq.${enc(user.id)}&order=created_at.desc&limit=200`),
+    rest(`messages?select=id,sender,body,created_at,read_by_client&user_id=eq.${enc(user.id)}&order=created_at.desc&limit=200`),
   ]);
-  await rest(`messages?user_id=eq.${enc(user.id)}&sender=eq.equipo&read_by_client=eq.false`, {
-    method: "PATCH", prefer: "return=minimal", body: { read_by_client: true },
-  }).catch(() => {});
+  /* Cambio de API (aditivo): `me` ya NO marca las respuestas como leídas; eso lo hace la acción `read`
+     cuando la persona abre la conversación. Así `unreadReplies` y `read` por mensaje son confiables
+     aunque el panel se refresque solo cada 30 s. */
+  const rows = (messages || []).reverse();
+  const unreadReplies = rows.filter((m) => m.sender === "equipo" && !m.read_by_client).length;
   const plan = sub.plan ? plans.getPlan(sub.plan) : null;
   send(res, 200, {
     ok: true,
@@ -69,8 +72,18 @@ async function me(req, res, user) {
       ebooks_gratis: !!plan.ebooks_gratis,
       biblioteca: !!plan.biblioteca,
     } : { calls: false, community: false, videollamada: false, ver_preguntas_otros: false, ebooks_gratis: false, biblioteca: false },
-    messages: (messages || []).reverse(),
+    unreadReplies,
+    messages: rows.map(({ read_by_client, ...m }) => ({ ...m, read: m.sender === "equipo" ? !!read_by_client : true })),
   });
+}
+
+/* Marca como leídas las respuestas del equipo de esta persona (la llama el panel al abrir «Preguntas»). */
+async function read(req, res, user) {
+  needPost(req);
+  await rest(`messages?user_id=eq.${enc(user.id)}&sender=eq.equipo&read_by_client=eq.false`, {
+    method: "PATCH", prefer: "return=minimal", body: { read_by_client: true },
+  });
+  send(res, 200, { ok: true });
 }
 
 async function message(req, res, user) {
@@ -174,15 +187,19 @@ async function materials(req, res, user) {
   send(res, 200, { ok: true, plan, items: (rows || []).map((m) => C.publicMaterial(m)) });
 }
 
+/* Tipos que el navegador muestra en una pestaña (cambio de API aditivo: `inline`). El resto siempre se descarga. */
+const INLINE_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm", "text/plain"]);
+
 async function materialUrl(req, res, user) {
   needPost(req);
   const plan = await accessiblePlan(user);
-  const id = String((await readBody(req)).id || "");
+  const body = await readBody(req);
+  const id = String(body.id || "");
   if (!C.UUID_RE.test(id)) throw new HttpError(400, "Material no válido.", "bad_id");
-  const rows = await rest(`plan_materials?select=storage_path,file_name,plans,published&id=eq.${enc(id)}`);
+  const rows = await rest(`plan_materials?select=storage_path,file_name,content_type,plans,published&id=eq.${enc(id)}`);
   const m = rows && rows[0];
   if (!m || !m.published || !(m.plans || []).includes(plan)) throw new HttpError(404, "Ese material no está disponible en tu plan.", "not_found");
-  const url = await ST.createSignedDownload(ST.BUCKET_MATERIAL, m.storage_path, { expiresIn: 120, downloadName: m.file_name });
+  const url = await ST.createSignedDownload(ST.BUCKET_MATERIAL, m.storage_path, { expiresIn: 120, downloadName: body.inline === true && INLINE_TYPES.has(String(m.content_type || "").toLowerCase()) ? undefined : m.file_name });
   if (!url) throw new HttpError(404, "El archivo no está disponible por ahora. Avísanos por el chat.", "file_missing");
   send(res, 200, { ok: true, url, fileName: m.file_name, expiresIn: 120 });
 }
@@ -213,7 +230,7 @@ async function freeResources(req, res) {
   res.end(JSON.stringify({ ok: true, items }));
 }
 
-const ROUTES = { me, message, community, videos, "video-request": videoRequest, "video-accept": videoAccept, "video-cancel": videoCancel, materials, "material-url": materialUrl };
+const ROUTES = { me, read, message, community, videos, "video-request": videoRequest, "video-accept": videoAccept, "video-cancel": videoCancel, materials, "material-url": materialUrl };
 
 module.exports = handle(async (req, res) => {
   const action = String(queryOf(req).action || "");

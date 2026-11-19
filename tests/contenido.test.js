@@ -111,6 +111,18 @@ test("descarga: URL firmada solo si el material es de tu plan y tu suscripción 
   assert.equal((await call(account, { method: "POST", url: "/api/account?action=material-url", body: { id: "no-uuid" }, as: "prem" })).status, 400);
 });
 
+
+test("material-url con inline:true abre PDF/imagen en pestaña (sin &download) y los demás tipos siguen descargándose", async () => {
+  const pdf = await call(account, { method: "POST", url: "/api/account?action=material-url", body: { id: MAT_E, inline: true }, as: "prem" });
+  assert.match(pdf.body.url, /token=SIG$/);
+  assert.doesNotMatch(pdf.body.url, /download=/);
+  db.plan_materials[0].content_type = "application/zip"; db.plan_materials[0].file_name = "ebook.zip";
+  const zip = await call(account, { method: "POST", url: "/api/account?action=material-url", body: { id: MAT_E, inline: true }, as: "prem" });
+  assert.match(zip.body.url, /download=ebook\.zip$/);
+  const sinInline = await call(account, { method: "POST", url: "/api/account?action=material-url", body: { id: MAT_G, inline: "yes" }, as: "prem" });
+  assert.match(sinInline.body.url, /download=guia\.pdf$/);
+});
+
 test("el panel de contenido exige ser del equipo", async () => {
   for (const a of ["materials", "media"]) assert.equal((await call(admin, { url: `/api/admin?action=${a}`, as: "prem" })).status, 403);
   assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=material-upload-url", body: { fileName: "a.pdf", contentType: "application/pdf", size: 5 }, as: "apr" })).status, 403);
