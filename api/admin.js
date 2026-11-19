@@ -547,7 +547,8 @@ const ROUTES = { list, thread, reply, whoami, summary, "mark-read": markReadActi
   media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset, "media-restore-previous": mediaRestorePrevious };
 
 module.exports = handle(async (req, res) => {
-  const fn = ROUTES[String(queryOf(req).action || "")];
+  const action = String(queryOf(req).action || "");
+  const fn = Object.hasOwn(ROUTES, action) ? ROUTES[action] : null;
   if (!fn) throw new HttpError(404, "Acción no encontrada.", "not_found");
   const user = await getUserFromToken(bearer(req));
   if (!(await S.isAdmin(user))) throw new HttpError(403, "Esta cuenta no tiene acceso al panel del equipo.", "not_admin");
