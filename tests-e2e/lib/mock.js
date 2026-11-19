@@ -57,6 +57,8 @@ const STUB = `window.supabase={createClient:function(u,k){var K='fa-mock-session
 async function instalar(page, opts) {
   opts = opts || {};
   const S = estado();
+  /* supabase-js se carga con SRI: el stub se instala antes de los scripts de la página (fa-auth.js no pide el CDN si window.supabase ya existe). */
+  await page.addInitScript({ content: STUB });
   if (opts.session !== false) await page.addInitScript(() => { try { if (!sessionStorage.getItem("__noauto")) localStorage.setItem("fa-mock-session", "1"); } catch (e) {} });
   await page.route("**/*", async (route) => {
     const req = route.request(), u = new URL(req.url());

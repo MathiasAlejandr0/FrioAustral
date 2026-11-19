@@ -2,12 +2,14 @@
    Carga supabase-js desde CDN. La URL y la anon key salen de /api/public-config (son públicas). */
 (function () {
   const SDK = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js";
+  /* Subresource Integrity: si el CDN entregara otro archivo, el navegador no lo ejecuta. Al cambiar de versión, recalcular. */
+  const SDK_SRI = "sha384-rwykjmWNwVxboyFmvK9OXN0wj9hnMHA2aAHtits54DuACyCq0M2PrSNxhRb+hvXT";
   let clientP = null;
   function loadScript(src) {
     return new Promise((ok, ko) => {
       if (window.supabase && window.supabase.createClient) return ok();
       const s = document.createElement("script");
-      s.src = src; s.async = true; s.crossOrigin = "anonymous";
+      s.src = src; s.async = true; s.crossOrigin = "anonymous"; s.integrity = SDK_SRI;
       s.onload = ok; s.onerror = () => ko(new Error("No se pudo cargar el inicio de sesión."));
       document.head.appendChild(s);
     });

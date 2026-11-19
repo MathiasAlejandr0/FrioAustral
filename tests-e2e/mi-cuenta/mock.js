@@ -50,6 +50,8 @@ function scenario(kind, over = {}) {
 }
 
 async function install(page, s) {
+  /* supabase-js se carga con SRI: el stub se instala antes de los scripts de la página (fa-auth.js no pide el CDN si window.supabase ya existe). */
+  await page.addInitScript({ content: STUB });
   await page.addInitScript(() => { if (!window.__noSess) localStorage.setItem("__sess", "1"); });
   await page.route("**/api/public-config", (r) => r.fulfill({ json: { ready: true, supabaseUrl: "https://x.test", supabaseAnonKey: "x" } }));
   await page.route("**/supabase.js", (r) => r.fulfill({ body: STUB, contentType: "application/javascript" }));
