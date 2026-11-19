@@ -58,8 +58,9 @@ async function rest(path, opts = {}, fetchImpl = fetch) {
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch (e) { data = text; }
   if (!res.ok) {
-    const msg = (data && data.message) || res.statusText || "Error de base de datos";
-    throw new HttpError(500, `Base de datos: ${msg}`, "db_error");
+    /* El detalle de PostgREST (tablas, columnas, restricciones) queda solo en el log del servidor. */
+    console.error("[db]", res.status, (data && (data.code || data.message)) || res.statusText || "error");
+    throw new HttpError(500, "No pudimos completar la operación. Intenta de nuevo en unos minutos.", "db_error");
   }
   if (opts.count) {
     const range = res.headers.get("content-range") || "";
