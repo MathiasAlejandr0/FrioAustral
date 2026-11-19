@@ -8,7 +8,7 @@ Thumbs.db
 .DS_Store
 # Videos: solo versiones optimizadas de menos de ~5 MB van a git.
 # Los originales/RAW quedan fuera. Cada video con data-media necesita sus 4 variantes (720/1080 × mp4/webm):
-# las -1080.mp4 (h264+aac, faststart, 4-6 MB) SÍ van a git; antes estaban excluidas y producción daba 404.
+# las -1080.mp4 (h264+aac, faststart, ~6-9 MB, generadas desde el original 4K con CRF 20) SÍ van a git; antes estaban excluidas y producción daba 404.
 # Si algún día se mueven a un hosting externo, apunta window.FA_MEDIA_BASE (assets/media.js).
 *.mp4
 *.webm

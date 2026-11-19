@@ -37,3 +37,27 @@ test("media.js cae a la versión -720 si la fuente falla y muestra botón de rep
   assert.match(js, /NotAllowedError|AbortError/);
   assert.match(js, /fa-play/);
 });
+
+function mvhdSeconds(file) {
+  const buf = fs.readFileSync(file).subarray(0, 400000);
+  const i = buf.indexOf("mvhd");
+  assert.ok(i > 0, `${path.basename(file)} sin mvhd`);
+  const v = buf[i + 4];
+  const ts = v === 1 ? buf.readUInt32BE(i + 24) : buf.readUInt32BE(i + 16);
+  const dur = v === 1 ? Number(buf.readBigUInt64BE(i + 28)) : buf.readUInt32BE(i + 20);
+  return dur / ts;
+}
+
+test("las variantes 720 y 1080 de cada video duran lo mismo (los .vtt siguen calzando) y ninguna pasa de 12 MB", () => {
+  for (const n of names) {
+    const d1080 = mvhdSeconds(path.join(root, "media/video", `${n}-1080.mp4`));
+    const d720 = mvhdSeconds(path.join(root, "media/video", `${n}-720.mp4`));
+    assert.ok(Math.abs(d1080 - d720) < 0.1, `${n}: 720 y 1080 difieren (${d720} vs ${d1080})`);
+    const vtt = fs.readFileSync(path.join(root, "media/video", `${n}.es.vtt`), "utf8");
+    const ends = [...vtt.matchAll(/-->\s*(\d+):(\d+):(\d+\.\d+)/g)].map((m) => +m[1] * 3600 + +m[2] * 60 + +m[3]);
+    assert.ok(Math.max(...ends) <= d1080 + 0.1, `${n}: el subtítulo termina después del video`);
+    for (const q of ["720", "1080"]) for (const ext of ["mp4", "webm"]) {
+      assert.ok(fs.statSync(path.join(root, "media/video", `${n}-${q}.${ext}`)).size < 12 * 1024 * 1024, `${n}-${q}.${ext} pesa más de 12 MB`);
+    }
+  }
+});
