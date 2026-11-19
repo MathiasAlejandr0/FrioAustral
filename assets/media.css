@@ -186,3 +186,8 @@ picture{display:block}
 @media(min-width:1200px) and (max-width:1439px){
   #cursos .cgrid .cmain{grid-template-columns:1fr 1fr!important}
 }
+/* Hero alineado con el logo: el bloque de texto usa el mismo padding lateral que .nav (16px; 40px desde 1024px)
+   en todos los anchos. Antes .h-grid tenía un ancho máximo centrado (1320/1440px) y en ventanas anchas
+   (p.ej. Chrome maximizado a 1920px) el título quedaba ~200px a la derecha del logo. */
+section.hero .h-grid{width:auto!important;max-width:none!important;margin-inline:0!important;padding-inline:16px;box-sizing:border-box}
+@media(min-width:1024px){section.hero .h-grid{padding-inline:40px}}
