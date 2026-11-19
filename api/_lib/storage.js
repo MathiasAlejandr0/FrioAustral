@@ -1,6 +1,6 @@
 /**
  * Supabase Storage desde el servidor (service role, sin dependencias).
- * Buckets: plan-material (PRIVADO, URLs firmadas) y site-media (público).
+ * Buckets: plan-material (PRIVADO, URLs firmadas), site-media y free-resources (públicos).
  * La service role nunca llega al navegador: el navegador solo recibe un token de subida de un solo uso
  * para una ruta concreta, o una URL firmada de descarga de pocos minutos.
  */
@@ -8,6 +8,7 @@ const { supaConfig, HttpError } = require("./supa");
 
 const BUCKET_MATERIAL = "plan-material";
 const BUCKET_MEDIA = "site-media";
+const BUCKET_FREE = "free-resources";   /* público: recursos gratis (documentos, fotos de referencia y videos cortos) */
 
 function cfg() {
   const c = supaConfig();
@@ -63,4 +64,4 @@ function publicUrl(bucket, path) {
   return `${c.url}/storage/v1/object/public/${bucket}/${encPath(path)}`;
 }
 
-module.exports = { BUCKET_MATERIAL, BUCKET_MEDIA, createSignedUpload, createSignedDownload, removeObjects, publicUrl };
+module.exports = { BUCKET_MATERIAL, BUCKET_MEDIA, BUCKET_FREE, createSignedUpload, createSignedDownload, removeObjects, publicUrl };

@@ -102,3 +102,11 @@ No se modificaron `D:\PROYECTOS\frio-austral\demo-cliente`, `05-premium` ni `05-
 - Subidas: el servidor entrega un token de subida de un solo uso para una ruta concreta; el archivo viaja directo del navegador a Storage (sin pasar por la función de Vercel, que tiene límite de 4,5 MB).
 
 Migraciones (aditivas): `20261119120000_material_planes_y_medios.sql` y `20261119121500_fa_has_plan_access_invoker.sql`.
+
+## Recursos gratis (gratis.html)
+El equipo los administra en **contenido.html → Recursos gratis** (título, descripción, foto de referencia obligatoria y tipo):
+- **Archivo** (PDF u otro documento) para descargar → sección «Documentos gratis».
+- **Video con link** (YouTube u otro https; en YouTube la foto es opcional y se usa su miniatura) y **video corto subido** (mp4/webm, máx. 50 MB, el tope de Supabase Free) → sección «Videos gratis», junto a la tarjeta fija de YouTube.
+- Una categoría sin recursos publicados no se muestra. Se puede publicar/ocultar, editar y eliminar (borra también los archivos del Storage).
+- Datos: tabla `free_resources` y bucket público `free-resources` (migración aditiva `20261119190000_recursos_gratis.sql`; lectura pública solo de lo publicado, escritura solo por `/api/admin` con la service role). La lista pública sale de `GET /api/account?action=free-resources`.
+- **La migración hay que aplicarla en Supabase antes de usar la pestaña** (hasta entonces la página solo muestra la tarjeta de YouTube).

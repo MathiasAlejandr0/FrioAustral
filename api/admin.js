@@ -19,6 +19,13 @@
  *   POST /api/admin?action=material-save   {path, title, description, category, plans, fileName, contentType, size, published}
  *   POST /api/admin?action=material-update {id, title, description, category, plans, published}
  *   POST /api/admin?action=material-delete {id}
+ * Recursos gratis de gratis.html (bucket público free-resources, máx. 50 MB por archivo; foto de referencia obligatoria):
+ *   GET  /api/admin?action=free-list
+ *   POST /api/admin?action=free-upload-url {id?, role: cover|file, kind: archivo|video_externo|video_corto, fileName, contentType, size}
+ *   POST /api/admin?action=free-save   {id, kind, title, description, published, coverPath, coverName, coverType, coverSize,
+ *                                       filePath, fileName, contentType, size, videoUrl}
+ *   POST /api/admin?action=free-update {id, title, description, published, videoUrl?, coverPath?, removeCover?, filePath?, ...}
+ *   POST /api/admin?action=free-delete {id}                         borra la fila y sus archivos del Storage
  * Fotos y videos del sitio (bucket público site-media):
  *   GET  /api/admin?action=media
  *   POST /api/admin?action=media-upload-url {slot, fileName, contentType, size}
@@ -32,6 +39,7 @@ const ACC = require("./_lib/access");
 const V = require("./_lib/video");
 const C = require("./_lib/content");
 const ST = require("./_lib/storage");
+const F = require("./_lib/free");
 const FA_SLOTS = require("../assets/fa-slots.js");
 const { readBody, send, bearer, queryOf, handle } = require("./_lib/http");
 
@@ -272,6 +280,121 @@ async function materialDelete(req, res) {
   send(res, 200, { ok: true });
 }
 
+/* ---------- recursos gratis ---------- */
+const FREE_COLS = "id,title,description,kind,cover_path,file_path,file_name,content_type,size_bytes,video_url,published,created_at";
+
+async function freeRow(id) {
+  const key = String(id || "");
+  if (!C.UUID_RE.test(key)) throw new HttpError(400, "Recurso no válido.", "bad_id");
+  const rows = await rest(`free_resources?select=${FREE_COLS}&id=eq.${enc(key)}`);
+  if (!rows || !rows[0]) throw new HttpError(404, "Recurso no encontrado.", "not_found");
+  return rows[0];
+}
+
+async function freeList(req, res) {
+  const rows = await rest(`free_resources?select=${FREE_COLS}&order=created_at.desc&limit=500`);
+  send(res, 200, { ok: true, items: (rows || []).map((r) => F.publicFree(r, { admin: true })) });
+}
+
+function freeKind(v) {
+  const kind = String(v || "");
+  if (!F.KINDS.includes(kind)) throw new HttpError(400, "Elige el tipo de recurso: archivo, video con link o video corto.", "bad_kind");
+  return kind;
+}
+
+async function freeUploadUrl(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const b = await readBody(req);
+  const kind = freeKind(b.kind);
+  const role = String(b.role || "");
+  const id = b.id ? String(b.id) : C.newId();
+  if (!C.UUID_RE.test(id)) throw new HttpError(400, "Recurso no válido.", "bad_id");
+  const f = F.checkFreeFile(role, kind, { fileName: b.fileName, contentType: b.contentType, size: b.size });
+  const up = await ST.createSignedUpload(ST.BUCKET_FREE, F.freePath(id, role, b.fileName));
+  send(res, 200, { ok: true, id, bucket: up.bucket, path: up.path, token: up.token, contentType: f.contentType });
+}
+
+/* Revisa un archivo ya subido (ruta del recurso, tipo y tamaño permitidos, existe en Storage). */
+async function checkFreeUpload(id, role, kind, path, meta) {
+  F.ownPath(id, role, path);
+  const name = meta.name || String(path).split("/").pop();
+  const f = F.checkFreeFile(role, kind, { fileName: name, contentType: meta.type, size: meta.size });
+  if (!(await ST.createSignedDownload(ST.BUCKET_FREE, path, { expiresIn: 30 }))) throw new HttpError(400, "El archivo no terminó de subirse. Súbelo de nuevo.", "not_uploaded");
+  return { ...f, name: C.safeFileName(name) };
+}
+
+function freeText(b) {
+  const title = C.cleanText(b.title, 160);
+  if (!title) throw new HttpError(400, "Ponle un título al recurso.", "title");
+  return { title, description: C.cleanText(b.description, 1000), published: b.published !== false };
+}
+
+const NEEDS_COVER = "Sube la foto de referencia: es la imagen que muestra de qué se trata el recurso.";
+const NEEDS_PREVIEW = "Sube una imagen de preview para este video (solo los links de YouTube pueden usar su miniatura).";
+
+async function freeSave(req, res, admin) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const b = await readBody(req);
+  const id = String(b.id || "");
+  if (!C.UUID_RE.test(id)) throw new HttpError(400, "Recurso no válido.", "bad_id");
+  const kind = freeKind(b.kind);
+  const row = { id, kind, ...freeText(b), created_by: admin.id };
+  let cover = null;
+  if (b.coverPath) {
+    cover = await checkFreeUpload(id, "cover", kind, b.coverPath, { name: b.coverName, type: b.coverType, size: b.coverSize });
+    row.cover_path = b.coverPath;
+  }
+  if (kind === "video_externo") {
+    const v = F.parseVideoUrl(b.videoUrl);
+    if (!cover && !v.youtubeId) throw new HttpError(400, NEEDS_PREVIEW, "needs_cover");
+    row.video_url = v.url;
+  } else {
+    if (!cover) throw new HttpError(400, NEEDS_COVER, "needs_cover");
+    const f = await checkFreeUpload(id, "file", kind, b.filePath, { name: b.fileName, type: b.contentType, size: b.size });
+    Object.assign(row, { file_path: b.filePath, file_name: f.name, content_type: f.contentType, size_bytes: f.size });
+  }
+  const rows = await rest("free_resources", { method: "POST", prefer: "return=representation", body: [row] });
+  send(res, 201, { ok: true, item: F.publicFree(rows[0], { admin: true }) });
+}
+
+async function freeUpdate(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const b = await readBody(req);
+  const r = await freeRow(b.id);
+  const patch = { ...freeText(b), updated_at: new Date().toISOString() };
+  const drop = [];
+  let coverNow = r.cover_path;
+  if (b.coverPath) {
+    await checkFreeUpload(r.id, "cover", r.kind, b.coverPath, { name: b.coverName, type: b.coverType, size: b.coverSize });
+    patch.cover_path = coverNow = b.coverPath;
+    if (r.cover_path) drop.push(r.cover_path);
+  } else if (b.removeCover) {
+    if (r.kind !== "video_externo") throw new HttpError(400, NEEDS_COVER, "needs_cover");
+    patch.cover_path = coverNow = null;
+    if (r.cover_path) drop.push(r.cover_path);
+  }
+  if (r.kind === "video_externo") {
+    const v = F.parseVideoUrl(b.videoUrl !== undefined ? b.videoUrl : r.video_url);
+    if (!coverNow && !v.youtubeId) throw new HttpError(400, NEEDS_PREVIEW, "needs_cover");
+    patch.video_url = v.url;
+  } else if (b.filePath) {
+    const f = await checkFreeUpload(r.id, "file", r.kind, b.filePath, { name: b.fileName, type: b.contentType, size: b.size });
+    Object.assign(patch, { file_path: b.filePath, file_name: f.name, content_type: f.contentType, size_bytes: f.size });
+    if (r.file_path) drop.push(r.file_path);
+  }
+  const rows = await rest(`free_resources?id=eq.${enc(r.id)}`, { method: "PATCH", prefer: "return=representation", body: patch });
+  await ST.removeObjects(ST.BUCKET_FREE, drop);
+  send(res, 200, { ok: true, item: F.publicFree(rows[0], { admin: true }) });
+}
+
+async function freeDelete(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const r = await freeRow((await readBody(req)).id);
+  await rest(`free_resources?id=eq.${enc(r.id)}`, { method: "DELETE", prefer: "return=minimal" });
+  await ST.removeObjects(ST.BUCKET_FREE, [r.cover_path, r.file_path].filter(Boolean));
+  send(res, 200, { ok: true });
+}
+
 /* ---------- fotos y videos del sitio ---------- */
 async function media(req, res) {
   const rows = await rest("site_media?select=slot,kind,storage_path,content_type,size_bytes,alt,updated_at&limit=200");
@@ -321,6 +444,7 @@ async function mediaReset(req, res) {
 const ROUTES = { list, thread, reply, whoami, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
   "access-list": accessList, "access-grant": accessGrant, "access-revoke": accessRevoke,
   materials, "material-upload-url": materialUploadUrl, "material-save": materialSave, "material-update": materialUpdate, "material-delete": materialDelete,
+  "free-list": freeList, "free-upload-url": freeUploadUrl, "free-save": freeSave, "free-update": freeUpdate, "free-delete": freeDelete,
   media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset };
 
 module.exports = handle(async (req, res) => {

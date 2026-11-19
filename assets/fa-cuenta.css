@@ -81,3 +81,10 @@
 .fa-card h3{font-family:var(--disp);text-transform:uppercase;font-size:clamp(20px,2.4vw,26px);margin:2px 0;line-height:1.05}
 /* pestañas que no caben en el móvil: pasan a otra línea en vez de salirse de la pantalla */
 @media(max-width:879px){.fa-tabs{flex-wrap:wrap;gap:6px;margin-bottom:10px}.fa-tabs button{border:1px solid var(--line);border-radius:99px;padding:8px 12px;font-size:14px}}
+/* Recursos gratis del panel */
+.fa-mat-edit [hidden]{display:none!important}
+.fa-free-item>summary{display:flex;align-items:center;gap:14px}
+.fa-free-thumb{flex:none;width:88px;height:55px;object-fit:cover;border-radius:10px;background:rgba(255,255,255,.05);display:grid;place-items:center;font-size:12px;color:var(--mut)}
+.fa-free-sum{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0}
+.fa-free-sum small{flex-basis:100%;overflow-wrap:anywhere}
+.fa-mat-edit small{color:var(--mut)}

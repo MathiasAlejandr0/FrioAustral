@@ -1,0 +1,22 @@
+/* Recursos gratis: todas las tarjetas con el mismo formato y el mismo alto (foto arriba, título, descripción y botón abajo).
+   Grilla: 1 columna en móvil, 2 en tablet, 3 en computador. */
+.free-grid.fa-free{display:grid;grid-template-columns:minmax(0,1fr);gap:var(--gap,16px);align-items:stretch;grid-auto-rows:1fr}
+@media(min-width:600px){.free-grid.fa-free{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(min-width:980px){.free-grid.fa-free{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+.fa-rc{padding:0;min-height:0;gap:0;overflow:hidden;height:100%;display:flex;flex-direction:column;color:inherit}
+.fa-rc-media{position:relative;aspect-ratio:16/10;width:100%;overflow:hidden;background:rgba(255,255,255,.05);flex:none}
+.fa-rc-media img,.fa-rc-media video{display:block;width:100%;height:100%;object-fit:cover;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
+.fa-rc-media video{object-fit:contain;background:#000}
+.fa-rc:hover .fa-rc-media img{transform:scale(1.04)}
+.fa-rc-badge{position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:999px;display:grid;place-content:center;font-size:13px;color:#fff;background:var(--red,#e5352f);box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
+.fa-rc-body{display:flex;flex-direction:column;gap:8px;padding:18px 22px 22px;flex:1 1 auto}
+.fa-rc-tag{color:var(--ice,#a6e6ff);font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.fa-rc h4{font-size:18px;line-height:1.3;font-weight:700;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;min-height:2.6em}
+.fa-rc p{color:var(--mut);font-size:14.5px;line-height:1.5;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;min-height:4.5em;margin:0}
+.fa-rc-cta{margin-top:auto;width:100%;justify-content:center}
+.fa-rc-body>.fa-rc-cta{margin-top:auto}
+.fa-rc-body p+.fa-rc-cta{margin-top:12px}
+#documentos-gratis[hidden]{display:none!important}
+.fa-free-sec{padding-top:10px}
+.fa-free-sec .sec-head{margin-bottom:24px}

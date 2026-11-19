@@ -225,3 +225,6 @@ html{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.18) transparent}
 
 .is-soon{opacity:.55;cursor:not-allowed;pointer-events:none}
 .fa-hm-note{margin:10px 0 0}
+
+/* Botones del hero: mismo tamaño en computador (en móvil ya van a todo el ancho) */
+@media(min-width:700px){section.hero .h-acts .btn{flex:0 0 196px;width:196px;justify-content:center;white-space:nowrap}}

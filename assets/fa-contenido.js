@@ -10,7 +10,7 @@
   const pname = (k) => (PLANS[k] || {}).name || k;
   const CAT = { ebook: "Ebook", biblioteca: "Biblioteca", guia: "Guía", video: "Video", recurso: "Recurso" };
   const fsize = (n) => (n == null ? "" : n >= 1048576 ? (n / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(n / 1024)) + " KB");
-  let tab = "material", mats = null, media = null, subs = null, pageFilter = "Todas", subQ = "", msg = null;
+  let tab = "material", mats = null, free = null, media = null, subs = null, pageFilter = "Todas", subQ = "", msg = null;
 
   function loginView(m) {
     root.innerHTML = `<div class="fa-auth glass"><h2>Contenido del sitio</h2><p class="fa-sub-note">Ingresa con la cuenta del equipo de Frío Austral.</p>
@@ -33,16 +33,17 @@
       <div class="fa-acc-head"><div><span class="mono fa-ej">Panel del equipo</span><h2>Contenido del sitio</h2></div>
         <div class="fa-row"><a class="btn btn-line btn-sm" href="equipo.html">← Suscriptores y preguntas</a><button class="btn btn-line btn-sm" id="faOut">Salir</button></div></div>
       ${note()}
-      <div class="fa-tabs" role="tablist">${[["material", "Material por plan"], ["fotos", "Fotos y videos"], ["accesos", "Accesos por plan"]].map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}" role="tab">${l}</button>`).join("")}</div>
-      <div id="faTabBody">${tab === "material" ? materialView() : tab === "fotos" ? mediaView() : accesosView()}</div>`;
+      <div class="fa-tabs" role="tablist">${[["material", "Material por plan"], ["gratis", "Recursos gratis"], ["fotos", "Fotos y videos"], ["accesos", "Accesos por plan"]].map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}" role="tab">${l}</button>`).join("")}</div>
+      <div id="faTabBody">${tab === "material" ? materialView() : tab === "gratis" ? freeView() : tab === "fotos" ? mediaView() : accesosView()}</div>`;
     $("#faOut").onclick = async () => { await A.signOut(); loginView(); };
     root.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = async () => { tab = b.getAttribute("data-tab"); msg = null; await ensure(); render(); }));
-    if (tab === "material") bindMaterial(); else if (tab === "fotos") bindMedia(); else bindAccesos();
+    if (tab === "material") bindMaterial(); else if (tab === "gratis") bindFree(); else if (tab === "fotos") bindMedia(); else bindAccesos();
   }
 
   async function ensure() {
     try {
       if (tab === "material" && !mats) mats = (await A.api("/api/admin?action=materials")).items;
+      if (tab === "gratis" && !free) free = (await A.api("/api/admin?action=free-list")).items;
       if (tab === "fotos" && !media) media = (await A.api("/api/admin?action=media")).items;
       if (tab === "accesos" && !subs) subs = await A.api("/api/admin?action=access-list");
     } catch (e) { say(e.message, true); }
@@ -124,6 +125,131 @@
     }));
   }
 
+  /* ---------------- Recursos gratis (gratis.html) ---------------- */
+  /* Mismas reglas que el servidor (api/_lib/free.js): aquí se avisa antes de subir, el servidor vuelve a validarlas. */
+  const MB = 1048576;
+  const FREE_RULES = {
+    cover: { types: { "image/jpeg": ["jpg", "jpeg"], "image/png": ["png"], "image/webp": ["webp"], "image/avif": ["avif"] }, max: 5 * MB, what: "una foto JPG, PNG, WebP o AVIF", big: "La foto pesa más de 5 MB. Redúcela o comprímela e inténtalo de nuevo." },
+    archivo: { types: { "application/pdf": ["pdf"], "application/epub+zip": ["epub"], "application/zip": ["zip"], "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ["docx"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ["xlsx"], "application/vnd.openxmlformats-officedocument.presentationml.presentation": ["pptx"], "text/plain": ["txt"] }, max: 50 * MB, what: "un PDF u otro documento (EPUB, ZIP, Word, Excel, PowerPoint o texto)", big: "El archivo pesa más de 50 MB. Comprímelo o divídelo en partes." },
+    video_corto: { types: { "video/mp4": ["mp4"], "video/webm": ["webm"] }, max: 50 * MB, what: "un video MP4 o WebM", big: "El video pesa más de 50 MB (el máximo que permite el sitio). Súbelo a YouTube y pega aquí el link, o comprímelo y vuelve a intentarlo." },
+  };
+  const FREE_KIND = { archivo: "Archivo para descargar", video_externo: "Video con link (YouTube)", video_corto: "Video corto subido" };
+  const FREE_ACCEPT = { cover: ".jpg,.jpeg,.png,.webp,.avif,image/jpeg,image/png,image/webp,image/avif", archivo: ".pdf,.epub,.zip,.docx,.xlsx,.pptx,.txt", video_corto: ".mp4,.webm,video/mp4,video/webm" };
+  const extOf = (n) => { const m = /\.([a-z0-9]{1,8})$/i.exec(String(n || "")); return m ? m[1].toLowerCase() : ""; };
+  /* Devuelve un mensaje en español si el archivo no sirve; "" si está bien. */
+  function freeCheck(file, ruleKey) {
+    const r = FREE_RULES[ruleKey];
+    const ok = r.types[String(file.type || "").toLowerCase()];
+    if (!ok || !ok.includes(extOf(file.name))) return "Tipo de archivo no permitido: sube " + r.what + ".";
+    if (!file.size) return "No pudimos leer el tamaño del archivo.";
+    if (file.size > r.max) return r.big;
+    return "";
+  }
+  const isYT = (u) => /^https:\/\/((www|m|music)\.)?(youtube\.com|youtube-nocookie\.com)\/|^https:\/\/(www\.)?youtu\.be\//i.test(String(u || "").trim());
+
+  function freeThumb(r) {
+    return r.coverUrl ? `<img class="fa-free-thumb" src="${esc(r.coverUrl)}" alt="" loading="lazy">` : `<span class="fa-free-thumb fa-prev-none">Sin foto</span>`;
+  }
+
+  function freeView() {
+    const list = (free || []).map((r) => `
+      <details class="fa-q fa-mat-item fa-free-item" data-id="${esc(r.id)}">
+        <summary>${freeThumb(r)}<span class="fa-free-sum"><b>${esc(r.title)}</b> <span class="fa-pill">${esc(FREE_KIND[r.kind] || r.kind)}</span> ${r.published ? `<span class="fa-pill fa-ok">Publicado</span>` : `<span class="fa-pill fa-warn">Oculto</span>`}
+          <small class="fa-sub-note">${r.fileName ? esc(r.fileName) + (r.size != null ? " · " + fsize(r.size) : "") + " · " : ""}${r.videoUrl ? esc(r.videoUrl) + " · " : ""}${fdate(r.createdAt)}</small></span></summary>
+        <form class="fa-mat-edit" data-free-edit="${esc(r.id)}" data-kind="${esc(r.kind)}">
+          <label>Título<input name="title" maxlength="160" value="${esc(r.title)}" required></label>
+          <label>Descripción<textarea name="description" rows="3" maxlength="1000">${esc(r.description)}</textarea></label>
+          ${r.kind === "video_externo" ? `<label>Link del video<input name="videoUrl" type="url" maxlength="500" value="${esc(r.videoUrl || "")}" required placeholder="https://www.youtube.com/watch?v=…"></label>` : ""}
+          <label>Cambiar la foto de referencia <small>(JPG, PNG, WebP o AVIF, hasta 5 MB; si no eliges nada, queda la actual)</small><input type="file" name="cover" accept="${FREE_ACCEPT.cover}"></label>
+          ${r.kind === "video_externo" && r.youtube && r.hasOwnCover ? `<label class="fa-check"><input type="checkbox" name="removeCover"> Usar la miniatura de YouTube en lugar de mi foto</label>` : ""}
+          ${r.kind !== "video_externo" ? `<label>${r.kind === "video_corto" ? "Cambiar el video" : "Cambiar el archivo"} <small>(hasta 50 MB; si no eliges nada, queda el actual)</small><input type="file" name="file" accept="${FREE_ACCEPT[r.kind]}"></label>` : ""}
+          <label class="fa-check"><input type="checkbox" name="published" ${r.published ? "checked" : ""}> Publicado en la página «Recursos gratis»</label>
+          <p class="fa-err" hidden role="alert"></p>
+          <div class="fa-row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-red btn-sm">Guardar cambios</button><button type="button" class="btn btn-line btn-sm fa-danger" data-free-del="${esc(r.id)}">Eliminar recurso</button></div>
+        </form>
+      </details>`).join("") || `<p class="fa-sub-note">Todavía no hay recursos gratis. Los que subas aparecerán en la página «Recursos gratis», junto a la tarjeta de YouTube.</p>`;
+    return `<section class="fa-card glass"><span class="fa-ej mono">Agregar recurso gratis</span>
+        <p class="fa-sub-note">Lo ve cualquier visitante en <a href="gratis.html" target="_blank" rel="noopener">Recursos gratis</a>. Cada recurso necesita una <b>foto de referencia</b> que muestre de qué se trata (en videos de YouTube es opcional: si no la subes, se usa la miniatura del video). Archivos y videos: hasta 50 MB.</p>
+        <form id="faFreeNew" class="fa-mat-edit" novalidate>
+          <label>Tipo de recurso<select name="kind" id="faFreeKind">${Object.keys(FREE_KIND).map((k) => `<option value="${k}">${FREE_KIND[k]}</option>`).join("")}</select></label>
+          <label>Título<input name="title" maxlength="160" required placeholder="Ej.: Guía rápida de presiones del A/C"></label>
+          <label>Descripción<textarea name="description" rows="3" maxlength="1000" placeholder="Cuenta en una o dos frases qué van a encontrar."></textarea></label>
+          <label>Foto de referencia <small id="faFreeCoverHint">(obligatoria · JPG, PNG, WebP o AVIF, hasta 5 MB)</small><input type="file" name="cover" id="faFreeCover" accept="${FREE_ACCEPT.cover}"></label>
+          <label data-for="archivo">Archivo para descargar <small>(PDF, EPUB, ZIP, Word, Excel, PowerPoint o texto · hasta 50 MB)</small><input type="file" name="file" accept="${FREE_ACCEPT.archivo}"></label>
+          <label data-for="video_externo" hidden>Link del video <small>(YouTube u otra página, con https://)</small><input name="videoUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=…"></label>
+          <label data-for="video_corto" hidden>Video corto <small>(MP4 o WebM · hasta 50 MB; si pesa más, súbelo a YouTube y usa «Video con link»)</small><input type="file" name="video" accept="${FREE_ACCEPT.video_corto}"></label>
+          <label class="fa-check"><input type="checkbox" name="published" checked> Publicar de inmediato</label>
+          <p class="fa-err" id="faFreeErr" role="alert" hidden></p>
+          <div><button class="btn btn-red btn-sm" id="faFreeGo">Agregar recurso</button> <span class="fa-sub-note" id="faFreeProg" hidden>Subiendo…</span></div>
+        </form></section>
+      <section class="fa-card glass"><span class="fa-ej mono">Recursos gratis (${(free || []).length})</span>${list}</section>`;
+  }
+
+  function bindFree() {
+    const f = $("#faFreeNew");
+    if (f) {
+      const kindSel = $("#faFreeKind"), hint = $("#faFreeCoverHint");
+      const sync = () => {
+        f.querySelectorAll("[data-for]").forEach((l) => { l.hidden = l.getAttribute("data-for") !== kindSel.value; });
+        hint.textContent = kindSel.value === "video_externo" ? "(obligatoria, salvo en links de YouTube: ahí se usa su miniatura · JPG, PNG, WebP o AVIF, hasta 5 MB)" : "(obligatoria · JPG, PNG, WebP o AVIF, hasta 5 MB)";
+      };
+      kindSel.onchange = sync; sync();
+      f.onsubmit = async (e) => {
+        e.preventDefault();
+        const er = $("#faFreeErr"), go = $("#faFreeGo"), pr = $("#faFreeProg");
+        const fail = (t) => { er.hidden = false; er.textContent = t; };
+        er.hidden = true;
+        const d = new FormData(f), kind = d.get("kind"), title = String(d.get("title") || "").trim();
+        const cover = d.get("cover"), hasCover = cover && cover.size, link = String(d.get("videoUrl") || "").trim();
+        const file = kind === "archivo" ? d.get("file") : kind === "video_corto" ? d.get("video") : null;
+        if (!title) return fail("Ponle un título al recurso.");
+        if (!hasCover && !(kind === "video_externo" && isYT(link))) return fail("Sube la foto de referencia: es la imagen que muestra de qué se trata el recurso.");
+        if (hasCover) { const m = freeCheck(cover, "cover"); if (m) return fail(m); }
+        if (kind === "video_externo") { if (!/^https:\/\/\S+\.\S+/.test(link)) return fail("Pega un link válido que empiece con https:// (por ejemplo, el de YouTube)."); }
+        else {
+          if (!file || !file.size) return fail(kind === "archivo" ? "Elige el archivo para descargar." : "Elige el video corto.");
+          const m = freeCheck(file, kind); if (m) return fail(m);
+        }
+        go.disabled = true; pr.hidden = false;
+        try {
+          let id = null, coverUp = null, fileUp = null;
+          const up = async (fl, role) => { const r = await A.api("/api/admin?action=free-upload-url", { body: { id, role, kind, fileName: fl.name, contentType: fl.type, size: fl.size } }); id = r.id; await upload(r, fl); return r; };
+          if (hasCover) coverUp = await up(cover, "cover");
+          if (file) fileUp = await up(file, "file");
+          if (!id) id = crypto.randomUUID();
+          await A.api("/api/admin?action=free-save", { body: { id, kind, title, description: d.get("description"), published: !!d.get("published"), videoUrl: link,
+            coverPath: coverUp && coverUp.path, coverName: hasCover ? cover.name : undefined, coverType: coverUp && coverUp.contentType, coverSize: hasCover ? cover.size : undefined,
+            filePath: fileUp && fileUp.path, fileName: file ? file.name : undefined, contentType: fileUp && fileUp.contentType, size: file ? file.size : undefined } });
+          free = null; say("Recurso agregado. " + (d.get("published") ? "Ya se ve en la página «Recursos gratis»." : "Quedó oculto hasta que lo publiques.")); await ensure(); render();
+        } catch (ex) { fail(ex.message); go.disabled = false; pr.hidden = true; }
+      };
+    }
+    root.querySelectorAll("[data-free-edit]").forEach((form) => (form.onsubmit = async (e) => {
+      e.preventDefault();
+      const er = $(".fa-err", form), btn = $("button", form), kind = form.getAttribute("data-kind"), id = form.getAttribute("data-free-edit");
+      const fail = (t) => { er.hidden = false; er.textContent = t; };
+      er.hidden = true;
+      const d = new FormData(form), cover = d.get("cover"), file = d.get("file"), hasCover = cover && cover.size, hasFile = file && file.size;
+      if (!String(d.get("title") || "").trim()) return fail("Ponle un título al recurso.");
+      if (hasCover) { const m = freeCheck(cover, "cover"); if (m) return fail(m); }
+      if (hasFile) { const m = freeCheck(file, kind); if (m) return fail(m); }
+      btn.disabled = true; btn.textContent = "Guardando…";
+      try {
+        const up = async (fl, role) => { const r = await A.api("/api/admin?action=free-upload-url", { body: { id, role, kind, fileName: fl.name, contentType: fl.type, size: fl.size } }); await upload(r, fl); return r; };
+        const cu = hasCover ? await up(cover, "cover") : null, fu = hasFile ? await up(file, "file") : null;
+        await A.api("/api/admin?action=free-update", { body: { id, title: d.get("title"), description: d.get("description"), published: !!d.get("published"), videoUrl: d.get("videoUrl") || undefined, removeCover: !!d.get("removeCover") && !hasCover,
+          coverPath: cu && cu.path, coverName: hasCover ? cover.name : undefined, coverType: cu && cu.contentType, coverSize: hasCover ? cover.size : undefined,
+          filePath: fu && fu.path, fileName: hasFile ? file.name : undefined, contentType: fu && fu.contentType, size: hasFile ? file.size : undefined } });
+        free = null; say("Cambios guardados."); await ensure(); render();
+      } catch (ex) { fail(ex.message); btn.disabled = false; btn.textContent = "Guardar cambios"; }
+    }));
+    root.querySelectorAll("[data-free-del]").forEach((b) => (b.onclick = async () => {
+      if (!confirm("¿Eliminar este recurso? Deja de verse en la página y se borran su foto y su archivo de forma definitiva.")) return;
+      try { await A.api("/api/admin?action=free-delete", { body: { id: b.getAttribute("data-free-del") } }); free = null; say("Recurso eliminado."); await ensure(); } catch (ex) { say(ex.message, true); }
+      render();
+    }));
+  }
+
   /* ---------------- Fotos y videos ---------------- */
   function originalPreview(s) {
     if (s.kind === "video") return `<div class="fa-prev fa-prev-none">Video original del sitio</div>`;
@@ -181,19 +307,19 @@
       return `<tr><td><b>${esc(r.buyerName || r.email)}</b><br><small class="fa-sub-note">${esc(r.email)}</small></td>
         <td>${esc(r.planName)}<br><span class="fa-pill ${live[1]}">${esc(live[0])}</span></td>
         <td>${r.periodEnd ? esc(fdate(r.periodEnd)) : "—"}</td>
-        <td><small class="fa-sub-note">${r.source === "manual" ? "A mano" : "Hotmart"} · ${r.hasAccount ? "ya tiene cuenta" : "aún sin cuenta"}</small></td>
+        <td><small class="fa-sub-note">${r.source === "manual" ? "A mano" : "Pago en línea"} · ${r.hasAccount ? "ya tiene cuenta" : "aún sin cuenta"}</small></td>
         <td>${r.status !== "cancelada" ? `<button type="button" class="btn btn-line btn-sm fa-danger" data-revoke="${esc(r.id)}">Quitar</button>` : ""}</td></tr>`;
     }).join("");
     const ev = d.events.map((e) => `<tr><td>${esc(fdate(e.received_at, true))}</td><td>${esc(e.event)}</td><td>${esc(e.email || "—")}</td><td>${esc(e.plan ? pname(e.plan) : "—")}</td><td>${esc(OUTCOME[e.outcome] || e.outcome)}</td></tr>`).join("");
     return `<section class="fa-card glass"><span class="fa-ej mono">Suscripciones</span>
-      <p class="fa-sub-note">Los planes se pagan en Hotmart y <b>se activan solos</b>: cuando Hotmart confirma el pago, el plan queda activo para el correo del comprador y se vincula a su cuenta cuando entra a <b>Mi cuenta</b> con ese correo. Los reembolsos, cancelaciones y contracargos lo desactivan solos.</p>
-      ${d.hottokConfigured ? "" : `<p class="fa-cta-msg bad" role="status">Falta conectar Hotmart: el sitio todavía no tiene el token del webhook (HOTMART_HOTTOK), por eso no se activa ningún plan automáticamente.</p>`}
+      <p class="fa-sub-note">Los planes se pagan en línea y <b>se activan solos</b>: cuando se confirma el pago, el plan queda activo para el correo del comprador y se vincula a su cuenta cuando entra a <b>Mi cuenta</b> con ese correo. Los reembolsos, cancelaciones y contracargos lo desactivan solos.</p>
+      ${d.hottokConfigured ? "" : `<p class="fa-cta-msg bad" role="status">Falta conectar el aviso automático de pagos: el sitio todavía no tiene el token del webhook, por eso no se activa ningún plan automáticamente.</p>`}
       <input id="faSubQ" placeholder="Buscar nombre o email" value="${esc(subQ)}">
-      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan</th><th>Vigente hasta</th><th>Origen</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="5" class="fa-sub-note">Todavía no hay compras confirmadas por Hotmart.</td></tr>`}</tbody></table></div></section>
-      <section class="fa-card glass"><span class="fa-ej mono">Últimos avisos de Hotmart</span>
+      <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Cliente</th><th>Plan</th><th>Vigente hasta</th><th>Origen</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="5" class="fa-sub-note">Todavía no hay compras confirmadas.</td></tr>`}</tbody></table></div></section>
+      <section class="fa-card glass"><span class="fa-ej mono">Últimos avisos de pago</span>
       <div class="v5-tw"><table class="v5-tab"><thead><tr><th>Fecha</th><th>Evento</th><th>Correo</th><th>Plan</th><th>Resultado</th></tr></thead><tbody>${ev || `<tr><td colspan="5" class="fa-sub-note">Aún no ha llegado ningún aviso.</td></tr>`}</tbody></table></div></section>
       <details class="fa-card glass"><summary><b>Respaldo: dar acceso a mano</b></summary>
-        <p class="fa-sub-note">Solo si Hotmart no avisó por alguna razón. Escribe el correo con que la persona pagó.</p>
+        <p class="fa-sub-note">Solo si el aviso de pago no llegó por alguna razón. Escribe el correo con que la persona pagó.</p>
         <form class="fa-grant" id="faGrant"><label class="fa-inline">Correo <input type="email" name="email" required></label>
           <select name="plan">${PK.map((k) => `<option value="${k}">${esc(pname(k))}</option>`).join("")}</select>
           <label class="fa-inline">Hasta <input type="date" name="until" value="${esc(plus(31))}" required></label>

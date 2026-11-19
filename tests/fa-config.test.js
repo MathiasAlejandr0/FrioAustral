@@ -16,7 +16,7 @@ test("fa-config.js deja la Academia apagada y cada curso lleva su hotmartCheckou
   assert.ok(!/hotfeature|_hi=/.test(JSON.stringify(cfg)), "sin parámetros de tracking");
 });
 
-test("los botones de compra de curso abren Hotmart en pestaña nueva y el curso sin link queda en «Próximamente»", () => {
+test("los botones de compra de curso abren el pago en pestaña nueva y el curso sin link queda en «Próximamente»", () => {
   for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html"))) {
     const html = fs.readFileSync(path.join(root, f), "utf8");
     for (const m of html.matchAll(/<a [^>]*data-course="aire-acondicionado-automotriz"[^>]*>/g)) {
@@ -70,9 +70,9 @@ test("los botones de suscripción de planes.html y de la portada abren el link d
 test("los textos de los planes coinciden con lo publicado", () => {
   const cfg = require("../assets/fa-config.js");
   assert.equal(cfg.PLANS.basico.tagline, "Ideal para quienes están comenzando en el mundo del aire acondicionado automotriz.");
-  assert.deepEqual(cfg.PLANS.basico.benefits, ["3 preguntas mensuales.", "Acceso a la plataforma digital.", "Resolución de dudas técnicas."]);
+  assert.deepEqual(cfg.PLANS.basico.benefits, ["3 preguntas mensuales.", "Acceso a tu panel de suscriptor.", "Resolución de dudas técnicas."]);
   assert.equal(cfg.PLANS.pro.tagline, "Ideal para quienes quieren aprender constantemente y resolver todas sus dudas.");
-  assert.deepEqual(cfg.PLANS.pro.benefits, ["Preguntas ilimitadas.", "Acceso a la plataforma digital.", "Resolución de consultas técnicas."]);
+  assert.deepEqual(cfg.PLANS.pro.benefits, ["Preguntas ilimitadas.", "Acceso a tu panel de suscriptor.", "Resolución de consultas técnicas."]);
   assert.equal(cfg.PLANS.premium.tagline, "Para quienes buscan capacitación continua y acompañamiento personalizado.");
   assert.deepEqual(cfg.PLANS.premium.benefits, [
     "Preguntas ilimitadas.",
@@ -143,7 +143,7 @@ test("fa-gate.js se ejecuta completo (oculta Academia y deja «Próximamente») 
       addEventListener() {}, get textContent() { return this._t; }, set textContent(v) { this._t = v; }, at };
   };
   const academia = mk({ href: "academia.html" }, "Academia");
-  const soon = mk({ "data-course": "parte-2-profesional" }, "Comprar en Hotmart");
+  const soon = mk({ "data-course": "parte-2-profesional" }, "Comprar curso");
   const doc = { readyState: "complete", addEventListener() {}, querySelectorAll: (sel) =>
     sel.startsWith("a[data-course") ? [soon] : sel === "a[href]" ? [academia] : [] };
   const win = { FA_CONFIG: require("../assets/fa-config.js") };

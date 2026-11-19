@@ -25,7 +25,7 @@
     const link = (a.getAttribute("data-link") || "").toLowerCase();
     if (link === "comprar-curso" || link === "curso-basico-avanzado") return true;
     const text = (a.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
-    return text.includes("comprar curso") || text.includes("comprar en hotmart");
+    return text.includes("comprar curso");
   };
 
   if (!enabled && ACADEMY_PAGES[file]) {
