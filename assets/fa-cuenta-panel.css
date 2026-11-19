@@ -270,3 +270,6 @@ dialog.pn-sheet { position: fixed; margin: 0; inset: auto 0 var(--kb) 0; width: 
 .pn-view-head h1 + p, .pn-view-head .pn-h2 + p { margin-top: 10px; }
 @media (max-width: 640px) { .pn-compose--compact .pn-guide--line { display: none; } }
 #pqCompose { display: contents; }
+
+/* Logo (640×583, no es cuadrado): sin deformarlo dentro de su caja cuadrada. */
+img[src*="logo-frio-austral"] { object-fit: contain; }
