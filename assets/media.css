@@ -44,7 +44,6 @@ picture{display:block}
 .fa-cta-bg img{object-fit:cover;object-position:62% 35%}
 .v5-cta.fa-cta-media::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(5,7,11,.92) 0%,rgba(5,7,11,.66) 45%,rgba(5,7,11,.92) 100%)}
 @media(max-width:879px){.fa-cta-bg img{object-position:66% 30%}}
-@media(prefers-reduced-motion:reduce){.hero .ph-img.fa-hero-media video.hero-vid{display:none}}
 /* V2 a lo ancho, arriba de la ficha y el temario */
 .cmain:has(.fa-v2){grid-template-columns:1fr!important}
 .cmain .m.fa-v2{aspect-ratio:16/9!important;min-height:0!important;max-height:none!important;height:auto}
@@ -70,7 +69,6 @@ picture{display:block}
 .fa-sound[aria-pressed="true"] .x{display:none}
 .fa-sound[hidden]{display:none}
 @media(max-width:879px){.fa-sound{top:78px;right:12px;padding:9px 13px;font-size:13px}}
-@media(prefers-reduced-motion:reduce){.fa-sound{display:none!important}}
 .hero .fa-hero-poster img,.hero .ph-img.fa-hero-media video.hero-vid{object-position:50% 30%!important}
 @media(min-width:880px){.hero .fa-hero-poster img,.hero .ph-img.fa-hero-media video.hero-vid{object-position:62% 40%!important}}
 /* I4: una sola foto, 1:1 en celular */
