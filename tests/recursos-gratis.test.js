@@ -286,7 +286,7 @@ test("gratis.html: títulos 'Videos gratis' y 'Documentos gratis', tarjeta de Yo
   assert.match(html, /<section[^>]*id="videos-gratis"[\s\S]*?<h2[^>]*>Videos <em>gratis<\/em><\/h2>/);
   assert.match(html, /<section[^>]*id="documentos-gratis"[^>]*\shidden>[\s\S]*?<h2[^>]*>Documentos <em>gratis<\/em><\/h2>/);
   assert.ok(html.indexOf('id="videos-gratis"') < html.indexOf('id="documentos-gratis"'), "videos arriba, documentos abajo");
-  assert.match(html, /id="faFreeVideos"[^>]*>\s*<article class="dl glass reveal fa-rc" data-kind="youtube">\s*<a class="fa-rc-media"[\s\S]*?<div class="fa-rc-body">[\s\S]*?<h4>Clases gratis en YouTube<\/h4>[\s\S]*?Ir al canal/);
+  assert.match(html, /id="faFreeVideos"[^>]*>\s*<article class="dl glass reveal fa-rc" data-kind="youtube">\s*<a class="fa-rc-media"[\s\S]*?<div class="fa-rc-body">[\s\S]*?<h4 aria-level="3">Clases gratis en YouTube<\/h4>[\s\S]*?Ir al canal/);
   assert.match(html, /<script src="assets\/fa-gratis\.js">/);
   assert.match(html, /href="assets\/fa-gratis\.css"/);
   assert.ok(!/Pronto|no hay recursos|sin recursos/i.test(html), "sin estado vacío");

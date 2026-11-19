@@ -51,7 +51,7 @@
       (r.kind === "video_corto" ? ' data-video="' + esc(safeUrl(r.fileUrl)) + '" data-poster="' + esc(cover) + '"' : "") + ">" +
       '<div class="fa-rc-media">' + img + badge + "</div>" +
       '<div class="fa-rc-body"><span class="fa-rc-tag mono">' + esc(tagOf(r)) + "</span>" +
-      "<h4>" + esc(r.title) + "</h4>" +
+      '<h4 aria-level="3">' + esc(r.title) + "</h4>" +
       "<p>" + esc(r.description) + "</p>" + ctaOf(r) + "</div></article>";
   }
 
