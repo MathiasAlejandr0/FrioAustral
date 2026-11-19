@@ -1,0 +1,14 @@
+# Archivos del repositorio que NO deben publicarse en el sitio (frioaustralspa.cl).
+# Hasta ahora se servían públicamente (por ejemplo /servidor_demo.py, /tests/api.test.js, /supabase/migrations/*.sql).
+# Las funciones de /api solo usan /api y /assets, que siguen publicándose.
+/tests
+/tests-e2e
+/docs
+/supabase
+/servidor_demo.py
+/servidor_demo.ps1
+/rangeserver.py
+/GUIA_DEMO.txt
+/Abrir demo Frío Austral.bat
+/README.md
+/.env.example
