@@ -22,6 +22,7 @@ const V = require("./_lib/video");
 const C = require("./_lib/content");
 const ST = require("./_lib/storage");
 const F = require("./_lib/free");
+const { communityItems } = require("./_lib/community");
 const { readBody, send, bearer, queryOf, handle } = require("./_lib/http");
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -104,27 +105,17 @@ async function message(req, res, user) {
 }
 
 async function community(req, res, user) {
-  const sub = await await S.getSubscriber(user.id);
+  const sub = await S.getSubscriber(user.id);
   const plan = sub && sub.plan ? plans.getPlan(sub.plan) : null;
   if (!plan || !(plan.community || plan.ver_preguntas_otros) || !S.canAsk(sub)) throw new HttpError(403, "El historial de preguntas de otros usuarios es parte del Plan Premium.", "not_premium");
   const q = String(queryOf(req).q || "").trim().toLowerCase().slice(0, 80);
-  const rows = await rest("messages?select=user_id,sender,body,created_at&order=user_id.asc,created_at.asc&limit=3000");
-  const items = [];
-  for (let i = 0; i < rows.length; i++) {
-    const m = rows[i];
-    if (m.sender !== "cliente") continue;
-    const reply = rows.slice(i + 1).find((x) => x.user_id === m.user_id && x.sender === "equipo");
-    const nextQ = rows.slice(i + 1).find((x) => x.user_id === m.user_id && x.sender === "cliente");
-    if (!reply || (nextQ && new Date(nextQ.created_at) < new Date(reply.created_at))) continue;
-    if (q && !(m.body.toLowerCase().includes(q) || reply.body.toLowerCase().includes(q))) continue;
-    items.push({ pregunta: String(m.body || ""), respuesta: String(reply.body || ""), fecha: reply.created_at });
-  }
-  items.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
-  send(res, 200, { ok: true, items: items.slice(0, 60) });
+  /* Los 3000 mensajes más recientes (antes se cortaba por user_id y se perdían conversaciones nuevas). */
+  const rows = await rest("messages?select=user_id,sender,body,created_at&order=created_at.desc&limit=3000");
+  send(res, 200, { ok: true, items: communityItems(rows, q) });
 }
 
 async function requireVideoPlan(user) {
-  const sub = await await S.getSubscriber(user.id);
+  const sub = await S.getSubscriber(user.id);
   const plan = sub && sub.plan ? plans.getPlan(sub.plan) : null;
   if (!plan || !plan.videollamada || !S.canAsk(sub)) throw new HttpError(403, "Las videollamadas de asesoría son parte del Plan Premium.", "not_premium");
   return sub;
@@ -237,7 +228,7 @@ module.exports = handle(async (req, res) => {
   if (action === "signup") return signup(req, res);
   if (action === "site-media") return siteMedia(req, res);
   if (action === "free-resources") return freeResources(req, res);
-  const fn = ROUTES[action];
+  const fn = Object.hasOwn(ROUTES, action) ? ROUTES[action] : null;
   if (!fn) throw new HttpError(404, "Acción no encontrada.", "not_found");
   const user = await getUserFromToken(bearer(req));
   return fn(req, res, user);
