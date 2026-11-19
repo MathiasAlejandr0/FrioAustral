@@ -154,7 +154,7 @@ test("Entrar a la videollamada abre meet.jit.si en una pestaña nueva, sin embeb
   }
   assert.doesNotMatch(read("assets/fa-app.css"), /\.fa-jitsi/);
   const note = "Se abre en una pestaña nueva, sin límite de tiempo. El primero del equipo en entrar puede tener que iniciar sesión con Google o GitHub para abrir la sala.";
-  for (const f of ["assets/fa-cuenta.js", "assets/fa-equipo.js"]) {
+  for (const f of ["assets/fa-cuenta.js", "assets/fa-panel-mensajes.js"]) {
     const js = read(f);
     assert.ok(js.includes(note), f);
     assert.match(js, /target="_blank"/);

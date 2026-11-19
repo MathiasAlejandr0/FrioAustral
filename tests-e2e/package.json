@@ -1,0 +1,7 @@
+{
+  "name": "frio-austral-panel-e2e",
+  "private": true,
+  "description": "Pruebas de navegador del panel del equipo (API simulada con page.route; no tocan datos reales).",
+  "scripts": { "test": "playwright test" },
+  "devDependencies": { "@playwright/test": "1.63.0", "@axe-core/playwright": "^4.10.0" }
+}

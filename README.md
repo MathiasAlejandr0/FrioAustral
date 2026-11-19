@@ -9,9 +9,9 @@ Base: demo del cliente `demo-cliente` del 5 de noviembre de 2026.
 - **Cursos**: cada curso tiene su `hotmartCheckoutUrl` en `assets/fa-config.js` → `COURSES`. El botón «Comprar en Hotmart» abre ese link en una pestaña nueva (`rel="noopener"`). El curso se ve en la plataforma de Hotmart (quien compra crea allí su usuario y contraseña): el sitio no da acceso a cursos ni pide cuenta para comprar. Si el link está vacío, el botón queda desactivado como «Próximamente».
 - **Suscripciones** (Aprendiz, Técnico, Premium): cada plan tiene su `hotmartCheckoutUrl` en `PLANS`. Hotmart avisa del pago al webhook `/api/hotmart/webhook` y el plan se **activa solo** para el correo del comprador.
 - **Mi cuenta** (`mi-cuenta.html`): crear cuenta / ingresar, ver el plan y su vigencia, chat con el equipo (con cupo según el plan), material de su plan y videollamadas (Premium).
-- **Panel del equipo** (`equipo.html`): suscriptores, preguntas por responder, responder y solicitudes de videollamada (confirmar, proponer otra hora, cancelar o entrar en una pestaña nueva).
+- **Panel del equipo** (`equipo.html`, único panel): Resumen, Mensajes (preguntas y videollamadas), Páginas del sitio (fotos y videos con mapa visual y vista previa, más los recursos gratis), Material de los planes y Accesos. Ver `docs/panel-equipo-rediseno.md`.
 - **Academia desactivada** (código dormido; ya no se usa para vender ni dar acceso a cursos). Las páginas `academia`, `mi-academia`, `leccion`, `certificado` e `ingresar` redirigen a `cursos.html`.
-- `admin.html` es la maqueta anterior (catálogo, video y links guardados solo en el navegador). Muestra un aviso que apunta al panel real.
+- `/admin` y `/contenido` redirigen a `equipo.html` (la maqueta `admin.html` y `contenido.html` ya no existen).
 
 ## Planes (precio en un solo lugar)
 
@@ -33,7 +33,7 @@ Base: demo del cliente `demo-cliente` del 5 de noviembre de 2026.
 3. Con `PURCHASE_APPROVED` o `PURCHASE_COMPLETE` el plan queda **activo** para `buyer.email` en la tabla `plan_access` (por correo, tenga o no cuenta). Con `PURCHASE_CANCELED`, `PURCHASE_REFUNDED` o `PURCHASE_CHARGEBACK` se **desactiva**. `SUBSCRIPTION_CANCELLATION` lo deja activo solo hasta la fecha ya pagada (`date_next_charge`) o lo desactiva si ya pasó. Cada renovación mensual llega como un nuevo `PURCHASE_APPROVED` y extiende la vigencia.
 4. Es **idempotente** (el mismo evento dos veces no cambia nada; un evento más antiguo que el último aplicado se ignora) y todo queda en la tabla `hotmart_events`.
 5. La persona vuelve a **`https://frioaustralspa.cl/mi-cuenta.html?compra=ok`** (página de agradecimiento de cada producto en Hotmart): crea su cuenta con el **mismo correo con que pagó** (o ingresa). El plan se vincula a la cuenta al registrarse o iniciar sesión. Si todavía no llegó el aviso de Hotmart, ve «Tu pago está siendo verificado».
-6. `contenido.html` → *Accesos por plan* muestra las suscripciones, su estado y los últimos avisos; dar acceso a mano queda solo como respaldo.
+6. `equipo.html` → *Accesos* muestra las suscripciones, su estado y los últimos avisos; dar acceso a mano queda solo como respaldo.
 
 **Mapeo producto → plan.** Se hace con `data.product.id` (el número que va dentro del código del link de pago: `D108538114T` → `108538114`), con `data.product.ucode` o con `data.purchase.offer.code`. Por defecto se derivan de los `hotmartCheckoutUrl` de los planes (Aprendiz `D108538114T`, Técnico `F108559411V`, Premium `W108559868U`). Si el primer aviso real llega como «Producto sin plan» en la pestaña de avisos, se corrige sin tocar código con la variable `HOTMART_PLAN_MAP` (JSON: `{"<id, ucode u offer.code>": "basico|pro|premium"}`).
 
@@ -88,11 +88,11 @@ No se modificaron `D:\PROYECTOS\frio-austral\demo-cliente`, `05-premium` ni `05-
 
 ## Contenido del sitio (panel del equipo)
 
-`contenido.html` (se entra con la misma cuenta del equipo que `equipo.html`; hay un botón en ese panel) tiene tres pestañas:
+En `equipo.html` (la misma cuenta del equipo) hay tres áreas para el contenido:
 
-- **Material por plan**: se sube un archivo (PDF, EPUB, ZIP, Word, Excel, PowerPoint, texto, imagen o video, hasta 50 MB), se le pone título, categoría (Ebook, Biblioteca, Guía, Video, Recurso) y se elige a qué planes va (uno o varios). Los suscriptores lo ven en **Mi cuenta → Material** (y en Ebooks / Biblioteca del Plan Premium) y lo descargan con un enlace firmado de 2 minutos. Se puede ocultar, editar o eliminar.
-- **Fotos y videos**: cada espacio del catálogo `assets/fa-slots.js` (portadas, secciones, galería del taller, reels, video de bienvenida y video del curso) se puede cambiar subiendo un archivo nuevo. «Volver al original» borra el archivo subido. Si no hay archivo nuevo o no carga, el sitio usa el archivo de siempre (`assets/fa-medios.js`).
-- **Accesos por plan**: las suscripciones y su estado (activo, cancelado, vencido) que llegan solos desde el webhook de Hotmart, más los últimos avisos recibidos. Dar acceso a mano a un correo queda como respaldo.
+- **Material de los planes** (menú «Material de los planes»): se sube un archivo (PDF, EPUB, ZIP, Word, Excel, PowerPoint, texto, imagen o video, hasta 50 MB), se le pone título, categoría (Ebook, Biblioteca, Guía, Video, Recurso) y se elige a qué planes va (uno o varios). Los suscriptores lo ven en **Mi cuenta → Material** (y en Ebooks / Biblioteca del Plan Premium) y lo descargan con un enlace firmado de 2 minutos. Se puede ocultar, editar o eliminar.
+- **Páginas del sitio** (menú «Páginas del sitio», una página a la vez con su mapa): cada espacio del catálogo `assets/fa-slots.js` (portadas, secciones, galería del taller, reels, video de bienvenida y video del curso) se puede cambiar subiendo un archivo nuevo. «Volver a la original» borra el archivo subido; «Volver a la versión anterior» recupera la última foto que había antes del último cambio. Si no hay archivo nuevo o no carga, el sitio usa el archivo de siempre (`assets/fa-medios.js`).
+- **Accesos** (menú «Accesos»): las suscripciones y su estado (activo, cancelado, vencido) que llegan solos desde el webhook de Hotmart, más los últimos avisos recibidos. Dar acceso a mano a un correo queda como respaldo.
 
 ### Cómo se controla el acceso
 
@@ -104,9 +104,9 @@ No se modificaron `D:\PROYECTOS\frio-austral\demo-cliente`, `05-premium` ni `05-
 Migraciones (aditivas): `20261119120000_material_planes_y_medios.sql` y `20261119121500_fa_has_plan_access_invoker.sql`.
 
 ## Recursos gratis (gratis.html)
-El equipo los administra en **contenido.html → Recursos gratis** (título, descripción, foto de referencia obligatoria y tipo):
+El equipo los administra en **equipo.html → Páginas del sitio → Gratis** (secciones «Videos gratis» y «Documentos gratis») (título, descripción, foto de referencia obligatoria y tipo):
 - **Archivo** (PDF u otro documento) para descargar → sección «Documentos gratis».
 - **Video con link** (YouTube u otro https; en YouTube la foto es opcional y se usa su miniatura) y **video corto subido** (mp4/webm, máx. 50 MB, el tope de Supabase Free) → sección «Videos gratis», junto a la tarjeta fija de YouTube.
 - Una categoría sin recursos publicados no se muestra. Se puede publicar/ocultar, editar y eliminar (borra también los archivos del Storage).
 - Datos: tabla `free_resources` y bucket público `free-resources` (migración aditiva `20261119190000_recursos_gratis.sql`; lectura pública solo de lo publicado, escritura solo por `/api/admin` con la service role). La lista pública sale de `GET /api/account?action=free-resources`.
-- **La migración hay que aplicarla en Supabase antes de usar la pestaña** (hasta entonces la página solo muestra la tarjeta de YouTube).
+- **La migración hay que aplicarla en Supabase antes de usar esas secciones** (hasta entonces la página solo muestra la tarjeta de YouTube).

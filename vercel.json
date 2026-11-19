@@ -1,6 +1,12 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/admin", "destination": "/equipo.html", "permanent": false },
+    { "source": "/admin.html", "destination": "/equipo.html", "permanent": false },
+    { "source": "/contenido", "destination": "/equipo.html#/paginas/inicio", "permanent": false },
+    { "source": "/contenido.html", "destination": "/equipo.html#/paginas/inicio", "permanent": false }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",

@@ -2,7 +2,9 @@
  * API del panel del equipo. Requiere sesión de Supabase de un admin
  * (email en ADMIN_EMAILS o fila en la tabla admins).
  *   GET  /api/admin?action=list
- *   GET  /api/admin?action=thread&user=<uuid>
+ *   GET  /api/admin?action=thread&user=<uuid>[&mark=0]      mark=0: abrir sin marcar como leído (cambio de API aprobado, aditivo)
+ *   POST /api/admin?action=mark-read    {user}                marca como atendida una conversación sin responder (aditivo)
+ *   GET  /api/admin?action=summary                            resumen del panel en una sola llamada (aditivo)
  *   POST /api/admin?action=reply        {user, body}
  *   GET  /api/admin?action=videos                     solicitudes de videollamada
  *   POST /api/admin?action=video-confirm  {id}
@@ -19,6 +21,7 @@
  *   POST /api/admin?action=material-save   {path, title, description, category, plans, fileName, contentType, size, published}
  *   POST /api/admin?action=material-update {id, title, description, category, plans, published}
  *   POST /api/admin?action=material-delete {id}
+ *   POST /api/admin?action=material-preview-url {id}          URL firmada de 2 minutos solo para el equipo, para «Ver archivo» (aditivo)
  * Recursos gratis de gratis.html (bucket público free-resources, máx. 50 MB por archivo; foto de referencia obligatoria):
  *   GET  /api/admin?action=free-list
  *   POST /api/admin?action=free-upload-url {id?, role: cover|file, kind: archivo|video_externo|video_corto, fileName, contentType, size}
@@ -30,7 +33,9 @@
  *   GET  /api/admin?action=media
  *   POST /api/admin?action=media-upload-url {slot, fileName, contentType, size}
  *   POST /api/admin?action=media-save      {slot, path, contentType, size, alt}
- *   POST /api/admin?action=media-reset     {slot}               vuelve al archivo original del sitio
+ *   POST /api/admin?action=media-reset     {slot}               vuelve al archivo original del sitio (borra también la versión anterior guardada)
+ *   POST /api/admin?action=media-restore-previous {slot}        vuelve a la última versión subida antes de la actual (aditivo)
+ *   media-save conserva la versión anterior inmediata de cada espacio (una sola); /api/admin?action=media devuelve hasPrevious.
  */
 const plans = require("./_lib/plans");
 const { getUserFromToken, rest, enc, HttpError } = require("./_lib/supa");
@@ -82,10 +87,21 @@ async function thread(req, res) {
     rest(`messages?select=id,sender,body,created_at&user_id=eq.${enc(id)}&order=created_at.asc&limit=500`),
     S.quotaFor(sub),
   ]);
+  /* mark=0 (cambio de API aprobado): abre la conversación sin marcarla como leída; se marca al responder o con mark-read. */
+  if (String(queryOf(req).mark) !== "0") await markRead(id);
+  send(res, 200, { ok: true, subscriber: { user_id: id, ...S.publicSub(sub) }, canAsk: S.canAsk(sub), quota, messages });
+}
+
+async function markRead(id) {
   await rest(`messages?user_id=eq.${enc(id)}&sender=eq.cliente&read_by_team=eq.false`, {
     method: "PATCH", prefer: "return=minimal", body: { read_by_team: true },
   });
-  send(res, 200, { ok: true, subscriber: { user_id: id, ...S.publicSub(sub) }, canAsk: S.canAsk(sub), quota, messages });
+}
+
+async function markReadAction(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  await markRead(userParam((await readBody(req)).user));
+  send(res, 200, { ok: true });
 }
 
 async function reply(req, res, admin) {
@@ -107,6 +123,50 @@ async function reply(req, res, admin) {
 
 async function whoami(req, res, admin) {
   send(res, 200, { ok: true, email: admin.email });
+}
+
+/* Resumen del panel en una sola llamada (antes eran 6). Solo cuenta lo que ya existe en la base; no inventa nada. */
+async function summary(req, res) {
+  const [subs, unread, calls, acc, mats, free, media] = await Promise.all([
+    rest("subscribers?select=user_id,plan,status,period_end&limit=1000"),
+    rest("messages?select=user_id&sender=eq.cliente&read_by_team=eq.false&limit=5000"),
+    rest("videocalls?select=status,scheduled_at&status=neq.cancelada&order=scheduled_at.asc&limit=200"),
+    rest("plan_access?select=status,period_end&limit=500"),
+    rest("plan_materials?select=title,plans,published,created_at&order=created_at.desc&limit=500"),
+    rest("free_resources?select=title,published,created_at&order=created_at.desc&limit=500"),
+    rest("site_media?select=slot,updated_at&order=updated_at.desc&limit=200"),
+  ]);
+  const now = Date.now();
+  const byPlan = Object.fromEntries(C.PLAN_KEYS.map((k) => [k, 0]));
+  let mrr = 0, problems = 0;
+  for (const s of subs || []) {
+    if (S.canAsk(s)) { byPlan[s.plan] = (byPlan[s.plan] || 0) + 1; mrr += (plans.getPlan(s.plan) || {}).amount || 0; }
+    if (["morosa", "pago_pendiente", "pendiente_tarjeta"].includes(s.status)) problems++;
+  }
+  const people = new Set((unread || []).map((m) => m.user_id));
+  const asked = (calls || []).filter((v) => v.status === "solicitada");
+  const next = asked.find((v) => new Date(v.scheduled_at).getTime() >= now);
+  const expiring = (acc || []).filter((r) => (r.status === "activa" || r.status === "cancelada_fin_periodo") && r.period_end
+    && new Date(r.period_end).getTime() + 86400000 >= now && new Date(r.period_end).getTime() <= now + 7 * 86400000).length;
+  const material = Object.fromEntries(C.PLAN_KEYS.map((k) => {
+    const own = (mats || []).filter((m) => (m.plans || []).includes(k));
+    return [k, { total: own.length, hidden: own.filter((m) => !m.published).length }];
+  }));
+  const recent = [
+    ...(mats || []).map((m) => ({ type: "material", title: m.title, at: m.created_at })),
+    ...(free || []).map((r) => ({ type: "gratis", title: r.title, at: r.created_at })),
+    ...(media || []).map((m) => ({ type: "foto", slot: m.slot, at: m.updated_at })),
+  ].filter((x) => x.at).sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 5);
+  send(res, 200, { ok: true,
+    messages: { people: people.size, messages: (unread || []).length },
+    videos: { pending: asked.length, nextAt: next ? next.scheduled_at : null },
+    subscribers: { byPlan, problems, total: (subs || []).length, mrr },
+    expiring,
+    material,
+    free: { published: (free || []).filter((r) => r.published).length, hidden: (free || []).filter((r) => !r.published).length },
+    media: { changed: (media || []).length, total: FA_SLOTS.SLOTS.length },
+    recent,
+    limits: { subscribers: (subs || []).length >= 1000, unread: (unread || []).length >= 5000, access: (acc || []).length >= 500, videos: (calls || []).length >= 200 } });
 }
 
 async function getCall(id) {
@@ -280,6 +340,15 @@ async function materialDelete(req, res) {
   send(res, 200, { ok: true });
 }
 
+/* «Ver archivo»: URL firmada de 2 minutos, solo para el equipo (cambio de API aprobado, aditivo). */
+async function materialPreviewUrl(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const m = await materialRow((await readBody(req)).id);
+  const url = await ST.createSignedDownload(ST.BUCKET_MATERIAL, m.storage_path, { expiresIn: 120 });
+  if (!url) throw new HttpError(404, "No encontramos el archivo en el almacenamiento.", "not_found");
+  send(res, 200, { ok: true, url, fileName: m.file_name, contentType: m.content_type, size: m.size_bytes == null ? null : Number(m.size_bytes) });
+}
+
 /* ---------- recursos gratis ---------- */
 const FREE_COLS = "id,title,description,kind,cover_path,file_path,file_name,content_type,size_bytes,video_url,published,created_at";
 
@@ -396,13 +465,21 @@ async function freeDelete(req, res) {
 }
 
 /* ---------- fotos y videos del sitio ---------- */
+/* La versión anterior es el archivo inmediatamente más antiguo que el actual en la carpeta del espacio (los nombres empiezan con la hora de subida). */
+function previousPath(current, listNewestFirst) {
+  const older = (listNewestFirst || []).filter((p) => p < current);
+  return older[0] || null;
+}
+
 async function media(req, res) {
   const rows = await rest("site_media?select=slot,kind,storage_path,content_type,size_bytes,alt,updated_at&limit=200");
   const by = Object.fromEntries((rows || []).map((r) => [r.slot, r]));
+  /* hasPrevious (aditivo): ¿hay una versión subida antes de la actual? Solo se consulta para los espacios cambiados. */
+  const prevOf = Object.fromEntries(await Promise.all((rows || []).map(async (r) => [r.slot, previousPath(r.storage_path, await ST.listObjects(ST.BUCKET_MEDIA, r.slot))])));
   const items = FA_SLOTS.SLOTS.map((s) => {
     const r = by[s.id];
     return { id: s.id, kind: s.kind, page: s.page, label: s.label, hint: s.hint || "", bases: s.bases || [], limits: FA_SLOTS.LIMITS[s.kind].label,
-      custom: r ? { url: ST.publicUrl(ST.BUCKET_MEDIA, r.storage_path), alt: r.alt || "", updatedAt: r.updated_at, size: r.size_bytes == null ? null : Number(r.size_bytes) } : null };
+      custom: r ? { url: ST.publicUrl(ST.BUCKET_MEDIA, r.storage_path), alt: r.alt || "", updatedAt: r.updated_at, size: r.size_bytes == null ? null : Number(r.size_bytes), contentType: r.content_type || null, hasPrevious: !!prevOf[s.id] } : null };
   });
   send(res, 200, { ok: true, items });
 }
@@ -427,7 +504,10 @@ async function mediaSave(req, res, admin) {
     method: "POST", prefer: "return=minimal,resolution=merge-duplicates",
     body: [{ slot: f.slot.id, kind: f.slot.kind, storage_path: path, content_type: f.contentType, size_bytes: f.size, alt: C.cleanText(b.alt, 300), updated_by: admin.id, updated_at: new Date().toISOString() }],
   });
-  if (prev && prev[0] && prev[0].storage_path !== path) await ST.removeObjects(ST.BUCKET_MEDIA, [prev[0].storage_path]);
+  /* Cambio aprobado: se conserva la versión anterior inmediata (para «Volver a la versión anterior») y se borran las más viejas. */
+  const keep = new Set([path, prev && prev[0] && prev[0].storage_path].filter(Boolean));
+  const old = (await ST.listObjects(ST.BUCKET_MEDIA, f.slot.id)).filter((p) => !keep.has(p) && p < path);
+  await ST.removeObjects(ST.BUCKET_MEDIA, old);
   send(res, 200, { ok: true, url: ST.publicUrl(ST.BUCKET_MEDIA, path) });
 }
 
@@ -437,15 +517,34 @@ async function mediaReset(req, res) {
   if (!slot) throw new HttpError(400, "Ese espacio de la página no existe.", "bad_slot");
   const prev = await rest(`site_media?select=storage_path&slot=eq.${enc(slot.id)}`);
   await rest(`site_media?slot=eq.${enc(slot.id)}`, { method: "DELETE", prefer: "return=minimal" });
-  if (prev && prev[0]) await ST.removeObjects(ST.BUCKET_MEDIA, [prev[0].storage_path]);
+  /* borra el archivo actual y también la versión anterior guardada */
+  const all = await ST.listObjects(ST.BUCKET_MEDIA, slot.id);
+  await ST.removeObjects(ST.BUCKET_MEDIA, [...new Set([...(prev && prev[0] ? [prev[0].storage_path] : []), ...all])]);
   send(res, 200, { ok: true });
 }
 
-const ROUTES = { list, thread, reply, whoami, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
+/* «Volver a la versión anterior» (cambio aprobado, aditivo): la fila apunta otra vez al archivo anterior y se borra el que se deja. */
+async function mediaRestorePrevious(req, res, admin) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const slot = FA_SLOTS.bySlot(String((await readBody(req)).slot || ""));
+  if (!slot) throw new HttpError(400, "Ese espacio de la página no existe.", "bad_slot");
+  const rows = await rest(`site_media?select=storage_path,content_type,size_bytes&slot=eq.${enc(slot.id)}`);
+  if (!rows || !rows[0]) throw new HttpError(404, "Este espacio no tiene un archivo nuevo.", "not_found");
+  const prev = previousPath(rows[0].storage_path, await ST.listObjects(ST.BUCKET_MEDIA, slot.id));
+  if (!prev) throw new HttpError(404, "No hay una versión anterior guardada.", "not_found");
+  const e = (/\.([a-z0-9]{1,8})$/i.exec(prev) || [])[1] || "";
+  const type = Object.keys(FA_SLOTS.LIMITS[slot.kind].types).find((t) => FA_SLOTS.LIMITS[slot.kind].types[t] === e.toLowerCase() || (t === "image/jpeg" && e.toLowerCase() === "jpeg"));
+  if (!type) throw new HttpError(400, "Archivo no válido.", "bad_path");
+  await rest(`site_media?slot=eq.${enc(slot.id)}`, { method: "PATCH", prefer: "return=minimal", body: { storage_path: prev, content_type: type, size_bytes: null, updated_by: admin.id, updated_at: new Date().toISOString() } });
+  await ST.removeObjects(ST.BUCKET_MEDIA, [rows[0].storage_path]);
+  send(res, 200, { ok: true, url: ST.publicUrl(ST.BUCKET_MEDIA, prev) });
+}
+
+const ROUTES = { list, thread, reply, whoami, summary, "mark-read": markReadAction, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
   "access-list": accessList, "access-grant": accessGrant, "access-revoke": accessRevoke,
-  materials, "material-upload-url": materialUploadUrl, "material-save": materialSave, "material-update": materialUpdate, "material-delete": materialDelete,
+  materials, "material-upload-url": materialUploadUrl, "material-save": materialSave, "material-update": materialUpdate, "material-delete": materialDelete, "material-preview-url": materialPreviewUrl,
   "free-list": freeList, "free-upload-url": freeUploadUrl, "free-save": freeSave, "free-update": freeUpdate, "free-delete": freeDelete,
-  media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset };
+  media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset, "media-restore-previous": mediaRestorePrevious };
 
 module.exports = handle(async (req, res) => {
   const fn = ROUTES[String(queryOf(req).action || "")];

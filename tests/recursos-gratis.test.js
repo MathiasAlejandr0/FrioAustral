@@ -320,11 +320,13 @@ test("migración: aditiva, RLS con lectura pública solo de publicados y escritu
   assert.ok(!/grant (insert|update|delete)[^;]*to (anon|authenticated)/i.test(sql));
 });
 
-test("el panel tiene la pestaña «Recursos gratis» con las reglas de tamaño y tipo", () => {
-  const js = fs.readFileSync(path.join(root, "assets/fa-contenido.js"), "utf8");
-  assert.match(js, /\["gratis", "Recursos gratis"\]/);
+test("el panel tiene las secciones «Videos gratis» y «Documentos gratis» con las reglas de tamaño y tipo", () => {
+  const js = fs.readFileSync(path.join(root, "assets/fa-panel-gratis.js"), "utf8");
+  const mapa = fs.readFileSync(path.join(root, "assets/fa-panel-mapa.js"), "utf8");
+  assert.match(mapa, /Videos gratis/); assert.match(mapa, /Documentos gratis/);
   assert.match(js, /free-upload-url/); assert.match(js, /free-save/); assert.match(js, /free-update/); assert.match(js, /free-delete/);
-  assert.match(js, /50 \* MB/);
-  assert.match(js, /Súbelo a YouTube y pega aquí el link/);
-  assert.match(js, /Sube la foto de referencia/);
+  assert.match(js, /"Agregar video de YouTube"|Agregar video de YouTube/); assert.match(js, /Subir video corto/); assert.match(js, /Subir documento/);
+  assert.match(js, /revisar\(f, VIDEO, 50/); assert.match(js, /revisar\(f, DOC, 50/);
+  assert.match(js, /Súbelo a YouTube y usa «Agregar video de YouTube»/);
+  assert.match(js, /Mejor ocultarlo/);
 });

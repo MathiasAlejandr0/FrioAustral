@@ -59,9 +59,18 @@ async function removeObjects(bucket, paths, fetchImpl) {
   if (!r.ok) console.error("[storage] remove", r.status, r.data && r.data.message);
 }
 
+/** Lista los archivos de una carpeta (nombres de más nuevo a más antiguo). [] si falla: nunca rompe quien llama. */
+async function listObjects(bucket, prefix, fetchImpl) {
+  try {
+    const r = await call(`object/list/${bucket}`, { method: "POST", body: JSON.stringify({ prefix, limit: 100, offset: 0, sortBy: { column: "name", order: "desc" } }) }, fetchImpl);
+    if (!r.ok || !Array.isArray(r.data)) return [];
+    return r.data.filter((o) => o && o.name && o.id !== null).map((o) => `${String(prefix).replace(/\/+$/, "")}/${o.name}`).sort().reverse();
+  } catch (e) { return []; }
+}
+
 function publicUrl(bucket, path) {
   const c = cfg();
   return `${c.url}/storage/v1/object/public/${bucket}/${encPath(path)}`;
 }
 
-module.exports = { BUCKET_MATERIAL, BUCKET_MEDIA, BUCKET_FREE, createSignedUpload, createSignedDownload, removeObjects, publicUrl };
+module.exports = { BUCKET_MATERIAL, BUCKET_MEDIA, BUCKET_FREE, createSignedUpload, createSignedDownload, removeObjects, listObjects, publicUrl };

@@ -90,7 +90,7 @@ test("el código de la Academia se mantiene en el proyecto", () => {
 });
 
 test("todas las páginas cargan fa-config, fa-gate y fa-precios", () => {
-  for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html") && x !== "admin.html")) {
+  for (const f of fs.readdirSync(root).filter((x) => x.endsWith(".html"))) {
     const html = fs.readFileSync(path.join(root, f), "utf8");
     assert.match(html, /assets\/fa-config\.js/, f);
     assert.match(html, /assets\/fa-gate\.js/, f);

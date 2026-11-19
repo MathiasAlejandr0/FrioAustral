@@ -189,12 +189,12 @@ test("fotos y videos: espacios del catálogo, tipos por espacio, guardar, reempl
   assert.equal(pub.status, 200);
   assert.equal(pub.body.items["inicio-curso"].url, `https://db.test/storage/v1/object/public/site-media/${r.body.path}`);
   assert.equal(pub.body.items["inicio-curso"].kind, "image");
-  // reemplazar borra el archivo anterior
+  // reemplazar conserva la versión anterior inmediata (cambio de API aprobado: «Volver a la versión anterior»); las más viejas se borran
   const r2 = await up({ slot: "inicio-curso", fileName: "otra.png", contentType: "image/png", size: 100 });
   files.add(`site-media/${r2.body.path}`);
   assert.equal((await save(r2.body.path)).status, 200);
   assert.equal(db.site_media.length, 1);
-  assert.deepEqual(removed, [r.body.path]);
+  assert.deepEqual(removed, [], "la versión anterior se conserva");
   // volver al original
   assert.equal((await call(admin, { method: "POST", url: "/api/admin?action=media-reset", as: "admin", body: { slot: "inicio-curso" } })).status, 200);
   assert.equal(db.site_media.length, 0);
@@ -256,9 +256,10 @@ test("las páginas públicas cargan el reemplazo de medios y el panel no se inde
     const html = fs.readFileSync(path.join(root, f), "utf8");
     assert.ok(html.indexOf("assets/fa-slots.js") > -1 && html.indexOf("assets/fa-medios.js") > html.indexOf("assets/fa-slots.js"), f);
   }
-  const c = fs.readFileSync(path.join(root, "contenido.html"), "utf8");
+  const c = fs.readFileSync(path.join(root, "equipo.html"), "utf8");
   assert.match(c, /name="robots" content="noindex"/);
   assert.match(c, /assets\/fa-auth\.js/);
+  assert.ok(!fs.existsSync(path.join(root, "contenido.html")) && !fs.existsSync(path.join(root, "admin.html")), "los paneles viejos ya no existen");
   assert.match(fs.readFileSync(path.join(root, "vercel.json"), "utf8"), /mi-cuenta\|equipo\|admin\|contenido/);
 });
 
