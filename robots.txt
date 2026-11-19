@@ -1,0 +1,16 @@
+# robots.txt de frioaustralspa.cl
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /mi-cuenta
+Disallow: /mi-cuenta.html
+Disallow: /equipo
+Disallow: /equipo.html
+Disallow: /admin
+Disallow: /admin.html
+Disallow: /contenido
+Disallow: /contenido.html
+Disallow: /ingresar
+Disallow: /ingresar.html
+
+Sitemap: https://frioaustralspa.cl/sitemap.xml

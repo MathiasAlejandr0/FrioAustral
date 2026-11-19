@@ -110,3 +110,9 @@ El equipo los administra en **equipo.html → Páginas del sitio → Gratis** (s
 - Una categoría sin recursos publicados no se muestra. Se puede publicar/ocultar, editar y eliminar (borra también los archivos del Storage).
 - Datos: tabla `free_resources` y bucket público `free-resources` (migración aditiva `20261119190000_recursos_gratis.sql`; lectura pública solo de lo publicado, escritura solo por `/api/admin` con la service role). La lista pública sale de `GET /api/account?action=free-resources`.
 - **La migración hay que aplicarla en Supabase antes de usar esas secciones** (hasta entonces la página solo muestra la tarjeta de YouTube).
+
+## SEO y Google Analytics
+
+- `robots.txt` y `sitemap.xml` están en la raíz. El sitemap lista solo las páginas públicas sin `noindex` (hoy: inicio, cursos, taller, gratis, comunidad y tienda). Si se agrega una página pública, súmala al sitemap y ponle title, description, canonical, Open Graph, un solo h1 y JSON-LD: `npm test` (`tests/seo.test.js`) lo exige.
+- `404.html` es la página de error propia (Vercel la sirve con código 404). Usa `<base href="/">` para que los estilos carguen desde cualquier dirección.
+- **Google Analytics 4**: pegar el ID de medición (`G-…`) en la constante `MEASUREMENT_ID` de `assets/fa-analytics.js`. Vacía, no carga nada. Si algún día `vercel.json` suma `script-src`/`connect-src`/`img-src` a la CSP, hay que autorizar `googletagmanager.com`, `google-analytics.com` y `*.analytics.google.com`.

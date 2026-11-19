@@ -6,7 +6,11 @@ const srv = http.createServer((req, res) => {
   let p = decodeURIComponent(new URL(req.url, "http://x").pathname);
   if (p === "/") p = "/index.html";
   const f = path.join(ROOT, p);
-  if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, message: "no existe" })); }
+  if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) {
+    /* Igual que Vercel: una dirección de página que no existe devuelve 404.html con código 404; lo demás, JSON. */
+    if (!p.startsWith("/api/") && !path.extname(p).replace(".html", "")) { res.writeHead(404, { "content-type": MIME[".html"], "cache-control": "no-store" }); return fs.createReadStream(path.join(ROOT, "404.html")).pipe(res); }
+    res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, message: "no existe" }));
+  }
   res.writeHead(200, { "content-type": MIME[path.extname(f)] || "application/octet-stream", "cache-control": "no-store" });
   fs.createReadStream(f).pipe(res);
 });
