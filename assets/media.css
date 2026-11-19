@@ -175,3 +175,16 @@ picture{display:block}
   section.hero .hero-stats b{font-size:clamp(19px,5.6vw,24px)!important;white-space:nowrap}
   section.hero .hero-stats span{font-size:12.5px!important}
 }
+
+/* Foto del curso principal (inicio): manómetros completos y centrados.
+   El recorte i4-curso-* ya viene centrado en los manómetros; aquí solo se fija el encuadre. */
+#cursos .cgrid .cmain .m picture img{object-position:50% 40%!important}
+@media(min-width:880px) and (max-width:1199px){
+  /* Con la foto en columna angosta se cortaban los manómetros: se apila y la foto va apaisada */
+  #cursos .cgrid .cmain{grid-template-columns:1fr!important}
+  #cursos .cgrid .cmain .m{height:auto!important;min-height:0!important;aspect-ratio:2/1!important}
+  #cursos .cgrid .cmain .m picture img{object-position:50% 20%!important}
+}
+@media(min-width:1200px) and (max-width:1439px){
+  #cursos .cgrid .cmain{grid-template-columns:1fr 1fr!important}
+}
