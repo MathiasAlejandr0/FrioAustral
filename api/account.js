@@ -45,7 +45,7 @@ async function signup(req, res) {
 async function me(req, res, user) {
   let sub = await S.ensureSubscriber(user);
   /* Si Hotmart ya confirmó el pago de este correo, el plan se vincula a la cuenta aquí. */
-  if (await ACC.applyAccess(user.email)) sub = await S.getSubscriber(user.id);
+  if (await ACC.applyAccess(user.email).catch((e) => { console.error("[access]", e.code); return false; })) sub = await S.getSubscriber(user.id);
   const [quota, messages] = await Promise.all([
     S.quotaFor(sub),
     rest(`messages?select=id,sender,body,created_at&user_id=eq.${enc(user.id)}&order=created_at.desc&limit=200`),

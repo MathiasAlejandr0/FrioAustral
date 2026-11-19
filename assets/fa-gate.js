@@ -55,6 +55,13 @@
     a.addEventListener("click", (e) => e.preventDefault());
   }
 
+  function hide(a) {
+    a.hidden = true;
+    a.setAttribute("hidden", "");
+    a.setAttribute("aria-hidden", "true");
+    a.style.display = "none";
+  }
+
   /* Enlace "Mi cuenta" (panel del suscriptor) en el menú y el drawer de todas las páginas. */
   function addAccountLink() {
     const url = C.ACCOUNT_URL || "mi-cuenta.html";

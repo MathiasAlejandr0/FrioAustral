@@ -132,3 +132,25 @@ test("no queda nada de Flow en el sitio, la API ni la configuración", () => {
   assert.ok(!fs.existsSync(path.join(root, "api", "flow")) && !fs.existsSync(path.join(root, "api", "cron")) && !fs.existsSync(path.join(root, "scripts")));
   assert.ok(!("crons" in JSON.parse(fs.readFileSync(path.join(root, "vercel.json"), "utf8"))));
 });
+
+test("fa-gate.js se ejecuta completo (oculta Academia y deja «Próximamente») sin ReferenceError", () => {
+  const vm = require("vm");
+  const mk = (attrs, text) => {
+    const at = { ...attrs };
+    return { _t: text, style: {}, hidden: false, classList: { add() {}, remove() {}, contains: () => false },
+      getAttribute: (k) => (k in at ? at[k] : null), hasAttribute: (k) => k in at,
+      setAttribute: (k, v) => { at[k] = v; }, removeAttribute: (k) => { delete at[k]; },
+      addEventListener() {}, get textContent() { return this._t; }, set textContent(v) { this._t = v; }, at };
+  };
+  const academia = mk({ href: "academia.html" }, "Academia");
+  const soon = mk({ "data-course": "parte-2-profesional" }, "Comprar en Hotmart");
+  const doc = { readyState: "complete", addEventListener() {}, querySelectorAll: (sel) =>
+    sel.startsWith("a[data-course") ? [soon] : sel === "a[href]" ? [academia] : [] };
+  const win = { FA_CONFIG: require("../assets/fa-config.js") };
+  win.window = win;
+  vm.runInNewContext(fs.readFileSync(path.join(root, "assets/fa-gate.js"), "utf8"),
+    { window: win, document: doc, location: { pathname: "/cursos.html", replace() {} } });
+  assert.equal(academia.hidden, true);
+  assert.equal(soon.textContent, "Próximamente");
+  assert.equal(soon.at["aria-disabled"], "true");
+});
