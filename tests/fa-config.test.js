@@ -61,7 +61,7 @@ test("los botones de suscripción de planes.html y de la portada abren el link d
   for (const [k, p] of Object.entries(cfg.PLANS)) {
     const a = new RegExp(`<a [^>]*data-plan="${k}"[^>]*href="${p.hotmartCheckoutUrl}"[^>]*target="_blank"[^>]*rel="noopener"`);
     assert.ok(a.test(planes), `planes.html: botón de ${p.name} sin su link de Hotmart`);
-    const b = new RegExp(`<a [^>]*href="${p.hotmartCheckoutUrl}" target="_blank" rel="noopener">Suscribirme para preguntar`);
+    const b = new RegExp(`<a [^>]*href="${p.hotmartCheckoutUrl}" target="_blank" rel="noopener"[^>]*>Suscribirme para preguntar`);
     assert.ok(b.test(index), `index.html: botón de ${p.name} sin su link de Hotmart`);
   }
   assert.ok(!/Plan Profesional/.test(planes + index), "ya no debe quedar el nombre Plan Profesional");

@@ -187,12 +187,12 @@ test("Course, FAQPage y BreadcrumbList de cursos.html coinciden con lo que se ve
   const principal = courses[0];
   assert.ok(html.includes(principal.name));
   assert.ok(html.includes(courses[1].name));
-  const precio = Number((html.match(/<p class="fa-hprice">[\s\S]*?<b>\$([\d.]+)<\/b>/) || [])[1].replace(/\./g, ""));
+  const precio = Number((html.match(/<p class="fa-hprice">[\s\S]*?<b[^>]*>\$([\d.]+)<\/b>/) || [])[1].replace(/\./g, ""));
   assert.equal(Number(principal.offers.price), precio, "el precio del JSON-LD es el que se ve");
   assert.equal(principal.offers.priceCurrency, "CLP");
   assert.equal(courses[1].offers, undefined, "la Parte 2 no muestra precio: no se inventa");
   const faq = g.find((n) => n["@type"] === "FAQPage");
-  const visibles = [...html.slice(html.indexOf('id="cp-faq"')).matchAll(/<details><summary>([^<]+)<\/summary><p>([^<]+)<\/p><\/details>/g)].map((m) => [m[1], m[2]]);
+  const visibles = [...html.slice(html.indexOf('id="cp-faq"')).matchAll(/<details><summary[^>]*>([^<]+)<\/summary><p[^>]*>([^<]+)<\/p><\/details>/g)].map((m) => [m[1], m[2]]);
   assert.ok(visibles.length >= 5);
   assert.deepEqual(faq.mainEntity.map((q) => [q.name, q.acceptedAnswer.text]), visibles);
   const bc = g.find((n) => n["@type"] === "BreadcrumbList");
