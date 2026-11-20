@@ -72,6 +72,8 @@
       S("Reels desde el taller", ["comunidad-reel-1", "comunidad-reel-2", "comunidad-reel-3", "comunidad-reel-4"])] },
     { slug: "suscripcion", nombre: "Suscripción", href: "planes.html", secciones: [
       S("Portada", ["planes-portada"], { texto: "«Suscríbete para preguntar»" })] },
+    { slug: "tienda", nombre: "Tienda", href: "tienda.html", secciones: [
+      S("Portada", [], { texto: "«Herramientas e insumos. Próximamente.»" })] },
   ];
   PAGINAS.forEach((p) => { p.ids = p.secciones.flatMap((s) => s.ids); p.ids.forEach((id) => { by[id].pagina = p.slug; }); });
 

@@ -80,6 +80,11 @@
     if (code === "needs_cover") return ctx.youtube ? "Agrega la foto de referencia: es la imagen que muestra de qué trata el recurso." : "Agrega la foto de referencia: es la imagen que muestra de qué trata el recurso, o pega un enlace de YouTube.";
     if (code === "bad_video_url") return "Pega el enlace de un video completo de YouTube (empieza con https://).";
     if (code === "title") return "Ponle un título.";
+    if (code === "empty") return "Escribe el texto.";
+    if (code === "too_long") return "El texto es muy largo. Acórtalo un poco.";
+    if (code === "bad_html") return "Solo se puede escribir texto. Quita los símbolos de código.";
+    if (code === "bad_text") return "Ese texto no puede nombrar al servicio de pago.";
+    if (code === "bad_id") return "Ese texto no está en esta página.";
     if (code === "bad_plans" || code === "bad_plan") return "Elige al menos un plan.";
     if (code === "bad_email") return "Revisa el correo: parece incompleto.";
     if (code === "bad_until") return /pas[óo]/i.test(msg) ? "Esa fecha ya pasó." : /13 meses/.test(msg) ? "La vigencia máxima es de 13 meses." : "Elige hasta qué día tiene acceso.";
@@ -110,7 +115,7 @@
     }
   }
   /* Lista en memoria: se pide una vez y se conserva al volver; force = pedirla de nuevo. */
-  const URLS = { list: "list", videos: "videos", access: "access-list", materials: "materials", free: "free-list", media: "media", summary: "summary" };
+  const URLS = { list: "list", videos: "videos", access: "access-list", materials: "materials", free: "free-list", media: "media", texts: "texts", summary: "summary" };
   async function get(key, force) {
     if (!force && FAP.cache[key]) return FAP.cache[key];
     const v = FAP.ver[key] = (FAP.ver[key] || 0) + 1;

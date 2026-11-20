@@ -4,7 +4,7 @@
    También muestra cómo quedaría una foto nueva, en computador y en celular, sin subir nada. */
 (function () {
   const FAP = window.FAP, { $, $$, esc } = FAP, M = window.FA_PANEL_MAPA, SL = window.FA_SLOTS;
-  const W = { pc: 1280, cel: 390 }, VH = { pc: 800, cel: 844 }, GUT = 34;
+  const W = { pc: 1280, cel: 390 }, VH = { pc: 800, cel: 844 }, GUT = 72, TX = window.FA_TEXTOS;
   const CSS = (vh) => `*,*::before,*::after{animation:none!important;transition:none!important}.reveal,.reveal *{opacity:1!important;transform:none!important}.mbar,.drawer,.fa-cookie{display:none!important}html body .hero,html body section.hero{min-height:${vh}px!important}html{scroll-behavior:auto!important}`;
 
   function findEls(doc, slot) {
@@ -35,10 +35,22 @@
       stage.style.width = GUT + W[mode] * scale + "px"; stage.style.height = H * scale + "px";
       if (ifr) { ifr.style.cssText = `left:${GUT}px;max-width:none;width:${W[mode]}px;height:${H}px;transform:scale(${scale});transform-origin:0 0`; }
     }
+    function numeros() {
+      const tx = TX ? TX.de(pg.slug) : [];
+      const all = tx.map((t) => ({ id: t.id, pos: (t.pos && t.pos[pg.slug]) || 0 }))
+        .concat(pg.ids.map((id) => ({ id, pos: (TX && TX.FOTOS[id] && TX.FOTOS[id][pg.slug]) || 0 })));
+      all.sort((a, b) => a.pos - b.pos);
+      const m = {}; all.forEach((it, i) => { m[it.id] = i + 1; });
+      return m;
+    }
+    function nombreZona(id) {
+      const z = M.por(id); if (z) return z.nombre;
+      const t = TX && TX.byId(id); return t ? `${t.etiqueta}. ${t.texto.slice(0, 80)}` : id;
+    }
     function pill(id, n, x, y, cls) {
-      const z = M.por(id), b = document.createElement("button");
+      const b = document.createElement("button");
       b.type = "button"; b.className = "pill fap-num fap-mk" + (cls || ""); b.textContent = n;
-      b.setAttribute("aria-label", `Zona ${n}: ${z.nombre}`); b.title = z.nombre;
+      b.setAttribute("aria-label", `Zona ${n}: ${nombreZona(id)}`); b.title = nombreZona(id);
       b.style.left = x + "px"; b.style.top = y + "px"; b.onclick = () => o.onPick && o.onPick(id);
       return b;
     }
@@ -49,10 +61,11 @@
       const all = $$("img,video", doc).map(seen).filter(Boolean).map((r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom }));
       const hit = (x, y, w, h, own) => all.some((a) => x < a.r && x + w > a.l && y < a.b && y + h > a.t && !(a.l === own.l && a.t === own.t && a.r === own.r));
       const hidden = [], placed = [], gut = []; let found = 0;
-      ids.forEach((id, i) => {
+      const N = numeros();
+      ids.forEach((id) => {
         if (o.only && id !== o.only) return;
         const slot = SL.bySlot(id), el = findEls(doc, slot).map((e) => [e, seen(e)]).find((p) => p[1]);
-        if (!el) { hidden.push([id, i + 1]); return; }
+        if (!el) { hidden.push([id, N[id]]); return; }
         found++;
         const r = el[1], pad = 3, mk = document.createElement("div");
         mk.className = "mk" + (id === on ? " on" : ""); mk.dataset.z = id;
@@ -69,22 +82,37 @@
         if (pos) placed.push({ x: pos[0], y: pos[1] });
         let gy = r.top * scale; if (!pos) { while (gut.some((y) => Math.abs(y - gy) < 30)) gy += 30; gut.push(gy); }
         const px = pos ? GUT + pos[0] * scale : 3, py = pos ? pos[1] * scale : gy;
-        const p = pill(id, i + 1, px, py); p.style.position = "absolute"; layer.appendChild(p);
+        const p = pill(id, N[id], px, py); p.style.position = "absolute"; layer.appendChild(p);
+      });
+      if (TX) TX.de(pg.slug).forEach((t) => {
+        if (o.only && t.id !== o.only) return;
+        const el = $$(`[data-edit="${t.id}"]`, doc).map((e) => [e, e.getBoundingClientRect()]).find((p) => p[1].width > 8 && p[1].height > 8);
+        if (!el) { hidden.push([t.id, N[t.id]]); return; }
+        found++;
+        const r = el[1], mk = document.createElement("div");
+        mk.className = "mk" + (t.id === on ? " on" : ""); mk.dataset.z = t.id;
+        mk.style.cssText = `left:${GUT + r.left * scale}px;top:${r.top * scale}px;width:${Math.max(8, r.width) * scale}px;height:${Math.max(8, r.height) * scale}px`;
+        layer.appendChild(mk);
+        let gy = r.top * scale; while (gut.some((y) => Math.abs(y - gy) < 30)) gy += 30; gut.push(gy);
+        const p = pill(t.id, N[t.id], 4, gy); p.style.position = "absolute"; layer.appendChild(p);
       });
       if (hidden.length) {
         nomk.hidden = false;
         nomk.innerHTML = `<span>${found ? "Zonas que no se ven en esta vista:" : "No pudimos mostrar la página real. Estas son sus zonas:"}</span>`;
-        hidden.forEach(([id, n]) => nomk.appendChild(pill(id, n, 0, 0, " static")));
+        hidden.forEach(([id, n]) => { if (n) nomk.appendChild(pill(id, n, 0, 0, " static")); });
         $$(".static", nomk).forEach((b) => { b.style.position = "static"; });
       }
-      note.textContent = found ? "Cada número es una foto o video que puedes cambiar." : "No se pudo cargar la vista de la página; usa la lista de la derecha.";
-      if (!found) schema();
+      note.textContent = found ? "Cada número es una foto, un video o un texto que puedes cambiar." : "No se pudo cargar la vista de la página; usa la lista de la derecha.";
+      if (!found) { nomk.hidden = true; nomk.innerHTML = ""; schema(); return; }
       if (on) highlight(on, true);
     }
     function schema() {
       layer.innerHTML = ""; stage.style.height = "auto"; stage.style.width = "100%"; if (ifr) ifr.remove(); ifr = null;
       layer.className = "layer fap-schema"; layer.style.position = "static";
-      layer.innerHTML = pg.secciones.map((s) => `<div>${esc(s.titulo)}${s.ids.length ? " · " + s.ids.map((id) => `<button type="button" class="fap-num fap-mk" data-s="${esc(id)}" aria-label="Zona ${ids.indexOf(id) + 1}: ${esc(M.por(id).nombre)}">${ids.indexOf(id) + 1}</button>`).join(" ") : ""}</div>`).join("");
+      const N = numeros();
+      const textos = TX ? TX.de(pg.slug) : [];
+      layer.innerHTML = pg.secciones.map((s) => `<div>${esc(s.titulo)}${s.ids.length ? " · " + s.ids.map((id) => `<button type="button" class="fap-num fap-mk" data-s="${esc(id)}" aria-label="Zona ${N[id]}: ${esc(M.por(id).nombre)}">${N[id]}</button>`).join(" ") : ""}</div>`).join("")
+        + (textos.length ? `<div>Textos · ${textos.map((t) => `<button type="button" class="fap-num fap-mk" data-s="${esc(t.id)}" aria-label="Zona ${N[t.id]}: ${esc(nombreZona(t.id))}">${N[t.id]}</button>`).join(" ")}</div>` : "");
       $$("[data-s]", layer).forEach((b) => (b.onclick = () => o.onPick && o.onPick(b.dataset.s)));
       note.textContent = "Esquema simple de la página: no pudimos mostrar la página real.";
     }
@@ -105,6 +133,7 @@
           st.textContent = CSS(VH[mode]); doc.head.appendChild(st);
           $$("img[loading=lazy]", doc).forEach((i) => { i.loading = "eager"; });
           await Promise.race([Promise.resolve(w.FA_MEDIA_READY).catch(() => 0), new Promise((r) => setTimeout(r, 3000))]);
+          await Promise.race([Promise.resolve(w.FA_TEXTOS_READY).catch(() => 0), new Promise((r) => setTimeout(r, 2500))]);
           await Promise.race([Promise.all($$("img", doc).map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener("load", r, { once: true }); i.addEventListener("error", r, { once: true }); })))), new Promise((r) => setTimeout(r, 3500))]);
           draw();
           if (w.ResizeObserver) { let t = null; ro = new w.ResizeObserver(() => { clearTimeout(t); t = setTimeout(draw, 150); }); ro.observe(doc.documentElement); }
@@ -139,12 +168,25 @@
       if (slot.css) { const s = doc.createElement("style"); s.id = "fap-prev"; s.textContent = `${slot.css}{background-image:url("${url}")!important}`; doc.head.appendChild(s); }
       setTimeout(draw, 250);
     }
+    function previewTexto(id, value) {
+      if (!ifr || !ifr.contentDocument) return;
+      undo();
+      const doc = ifr.contentDocument, apl = ifr.contentWindow.FA_APLICAR_TEXTOS;
+      $$(`[data-edit="${id}"]`, doc).forEach((el) => {
+        const kids = [...el.childNodes].map((n) => n.cloneNode(true));
+        restore.push(() => { if (el.replaceChildren) el.replaceChildren(...kids.map((n) => n.cloneNode(true))); });
+        if (apl) apl.aplicar(el, value); else el.textContent = value;
+      });
+      const el = doc.querySelector(`[data-edit="${id}"]`);
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: "center" });
+      setTimeout(draw, 80);
+    }
     function setMode(m) { mode = m; H = VH[m]; if (ro) { try { ro.disconnect(); } catch (e) { /* nada */ } ro = null; } layer.className = "layer"; layer.style.position = ""; load(); }
     function destroy() { alive = false; clearTimeout(timer); if (ro) try { ro.disconnect(); } catch (e) { /* nada */ } host.innerHTML = ""; }
     const onResize = () => { if (alive && ifr) draw(); };
     window.addEventListener("resize", onResize);
     load();
-    return { highlight, setMode, preview, destroy: () => { window.removeEventListener("resize", onResize); destroy(); }, get mode() { return mode; }, draw };
+    return { highlight, setMode, preview, previewTexto, destroy: () => { window.removeEventListener("resize", onResize); destroy(); }, get mode() { return mode; }, draw };
   }
   FAP.vista = { mount };
 })();

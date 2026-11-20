@@ -7,10 +7,14 @@
   const num = (n) => Number(n).toLocaleString("es-CL");
 
   /* ---------- lista de páginas (celular y atajo) ---------- */
-  const cambiosDe = (slug) => ((FAP.cache.media && FAP.cache.media.items) || []).filter((x) => x.custom && M.por(x.id) && M.por(x.id).pagina === slug).length;
+  const cambiosDe = (slug) => {
+    const fotos = ((FAP.cache.media && FAP.cache.media.items) || []).filter((x) => x.custom && M.por(x.id) && M.por(x.id).pagina === slug).length;
+    const textos = ((FAP.cache.texts && FAP.cache.texts.items) || []).filter((x) => { const t = window.FA_TEXTOS.byId(x.id); return t && t.paginas.includes(slug); }).length;
+    return fotos + textos;
+  };
   function lista(main) {
-    main.innerHTML = `<div class="fap-view"><p class="fap-help">Elige la página del sitio que quieres cambiar. Verás sus fotos y videos, y dónde se ve cada uno.</p><div class="fap-pages" id="pgL">${M.PAGINAS.map((p) => `<a class="fap-card fap-pg" href="#/paginas/${p.slug}"><span class="fap-kick">Página</span><span class="big">${esc(p.nombre)}</span><span class="fap-help">${p.ids.length ? p.ids.length + (p.ids.length === 1 ? " foto o video" : " fotos y videos") : "Recursos gratis"}${p.slug === "gratis" ? " y archivos" : ""}</span><span class="fap-chip info" data-c="${p.slug}" hidden></span></a>`).join("")}</div></div>`;
-    FAP.get("media").then(() => { $$("[data-c]", main).forEach((c) => { const n = cambiosDe(c.dataset.c); if (n) { c.hidden = false; c.textContent = `${n} ${n === 1 ? "cambio" : "cambios"}`; } }); }).catch(() => {});
+    main.innerHTML = `<div class="fap-view"><p class="fap-help">Elige la página del sitio que quieres cambiar. Verás sus fotos, videos y textos, y dónde se ve cada uno.</p><div class="fap-pages" id="pgL">${M.PAGINAS.map((p) => `<a class="fap-card fap-pg" href="#/paginas/${p.slug}"><span class="fap-kick">Página</span><span class="big">${esc(p.nombre)}</span><span class="fap-help">${p.ids.length ? p.ids.length + (p.ids.length === 1 ? " foto o video" : " fotos y videos") : "Recursos gratis"}${p.slug === "gratis" ? " y archivos" : ""}</span><span class="fap-chip info" data-c="${p.slug}" hidden></span></a>`).join("")}</div></div>`;
+    Promise.all([FAP.get("media"), FAP.get("texts").catch(() => null)]).then(() => { $$("[data-c]", main).forEach((c) => { const n = cambiosDe(c.dataset.c); if (n) { c.hidden = false; c.textContent = `${n} ${n === 1 ? "cambio" : "cambios"}`; } }); }).catch(() => {});
   }
 
   /* ---------- tarjeta de una foto o video ---------- */
@@ -40,7 +44,7 @@
     const pg = M.pagina(slug);
     if (!pg) { FAP.go("#/paginas"); return; }
     FAP.setTitle(pg.nombre);
-    let alive = true, map = null, mode = "pc", items = null;
+    let alive = true, map = null, mode = "pc", items = null, customs = {}, textoOk = true;
     const desktop = matchMedia("(min-width:1100px)").matches;
     main.innerHTML = `<div class="fap-page"><div class="fap-head"><nav class="fap-pgtabs" aria-label="Páginas del sitio">${M.PAGINAS.map((p) => `<a href="#/paginas/${p.slug}" ${p.slug === slug ? 'aria-current="page"' : ""}>${esc(p.nombre)}</a>`).join("")}</nav><a class="fap-btn sec sm" href="${esc(pg.href)}" target="_blank" rel="noopener">Ver esta página en el sitio ${ico("ext")}</a></div>
       <div class="fap-cols"><div class="fap-mapcol"><section class="fap-card fap-mapcard"><details id="pMapD" ${desktop ? "open" : ""}><summary>${ico("map")}&nbsp;Ver mapa de la página</summary>
@@ -51,32 +55,48 @@
     det.addEventListener("toggle", mountMap);
     $$("[data-m]", main).forEach((b) => (b.onclick = () => { mode = b.dataset.m; $$("[data-m]", main).forEach((x) => x.setAttribute("aria-pressed", String(x === b))); if (map) map.setMode(mode); else mountMap(); }));
     function pick(id) {
-      const c = $("#z-" + id, main); if (!c) return;
+      const c = $("#z-" + id, main) || $(`[data-tx="${id}"]`, main); if (!c) return;
       c.scrollIntoView({ block: "center", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
       c.classList.add("flash"); setTimeout(() => c.classList.remove("flash"), 2000);
     }
     const byId = () => Object.fromEntries((items || []).map((i) => [i.id, i]));
     function paint() {
       const by = byId();
-      secs.innerHTML = pg.secciones.map((s) => {
-        const head = `<header><span class="fap-kick">${esc(s.recursos ? "Archivos de esta página" : "Sección")}</span><h2>${esc(s.titulo)}</h2>${s.texto ? `<p class="fap-help">${esc(s.texto)}</p>` : ""}</header>`;
-        if (s.recursos) return `<section class="fap-sec" data-rec="${s.recursos}">${head}<div class="fap-rbox"></div></section>`;
-        return `<section class="fap-sec">${head}<div class="fap-slots">${s.ids.map((id) => card(M.por(id), pg.ids.indexOf(id) + 1, by[id])).join("")}</div></section>`;
+      const mix = FAP.textos.piezas(pg);
+      const aviso = textoOk ? "" : `<div class="fap-strip warn"><p>Los textos todavía no se pueden guardar. Avisa al administrador del sitio para que actualice la base. Las fotos sí se pueden cambiar.</p></div>`;
+      secs.innerHTML = aviso + mix.blocks.map((s) => {
+        const head = `<header><span class="fap-kick">${esc(s.recursos ? "Archivos de esta página" : "Sección")}</span><h2>${esc(s.titulo)}</h2></header>`;
+        const fotos = s.fotos.length ? `<div class="fap-slots">${s.fotos.map((it) => card(M.por(it.id), mix.num[it.id], by[it.id])).join("")}</div>` : "";
+        const textos = s.textos.length ? `<div class="fap-textos">${s.textos.map((it) => FAP.textos.fila(window.FA_TEXTOS.byId(it.id), mix.num[it.id], customs[it.id])).join("")}</div>` : "";
+        const rec = s.recursos ? ` data-rec="${s.recursos}"` : "";
+        return `<section class="fap-sec"${rec}>${head}${s.recursos ? `<div class="fap-rbox"></div>` : ""}${fotos}${textos}</section>`;
       }).join("");
       $$("[data-cambiar]", secs).forEach((b) => (b.onclick = () => cambiar(b.dataset.cambiar, b)));
       $$("[data-reset]", secs).forEach((b) => (b.onclick = () => volver(b.dataset.reset, b)));
       $$("[data-prev]", secs).forEach((b) => (b.onclick = () => anterior(b.dataset.prev, b)));
       $$("[data-full]", secs).forEach((b) => (b.onclick = () => completa(b.dataset.full, b)));
       $$("[data-mapa]", secs).forEach((b) => (b.onclick = () => { det.open = true; mountMap(); if (map) map.highlight(b.dataset.mapa); $(".fap-mapcard", main).scrollIntoView({ block: "nearest" }); }));
+      const hecho = (id) => recargar(id);
+      $$("[data-texto]", secs).forEach((b) => (b.onclick = () => FAP.textos.editar(pg, b.dataset.texto, customs[b.dataset.texto], hecho)));
+      $$("[data-torig]", secs).forEach((b) => (b.onclick = () => FAP.textos.volver(b.dataset.torig, hecho)));
+      $$("[data-tant]", secs).forEach((b) => (b.onclick = () => FAP.textos.anterior(b.dataset.tant, hecho)));
       $$("[data-rec]", secs).forEach((h) => FAP.gratis.seccion($(".fap-rbox", h), h.dataset.rec, pg));
       FAP.repaintNav();
     }
     async function load(force) {
       secs.innerHTML = `<div class="fap-skel" style="height:260px"></div>`;
-      try { items = (await FAP.get("media", force)).items; if (alive) { paint(); mountMap(); } }
+      try {
+        items = (await FAP.get("media", force)).items;
+        try { customs = Object.fromEntries(((await FAP.get("texts", force)).items || []).map((x) => [x.id, x])); textoOk = true; }
+        catch (e) { if (e.handled) return; customs = {}; textoOk = false; }
+        if (alive) { paint(); mountMap(); }
+      }
       catch (e) { if (!alive || e.handled) return; secs.innerHTML = `<div class="fap-card"><p><b>No se pudieron cargar las fotos y videos.</b></p><p class="fap-help">${esc(err(e))}</p><p style="margin-top:12px"><button type="button" class="fap-btn" id="pRe">Reintentar</button></p></div>`; $("#pRe", secs).onclick = () => load(true); }
     }
-    async function recargar(focusId) { FAP.drop("media", "summary"); await load(true); if (focusId) { const b = $(`#z-${focusId} [data-cambiar]`, main); if (b) b.focus(); } }
+    async function recargar(focusId) {
+      FAP.drop("media", "texts", "summary"); await load(true);
+      if (focusId) { const b = $(`#z-${focusId} [data-cambiar]`, main) || $(`[data-tx="${focusId}"] [data-texto]`, main); if (b) b.focus(); }
+    }
 
     function completa(id) {
       const z = M.por(id), it = byId()[id], c = it && it.custom;
