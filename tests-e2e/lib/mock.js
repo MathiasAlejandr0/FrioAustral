@@ -36,6 +36,7 @@ function estado() {
       { id: uid(42), title: "Tabla de presiones R134a", description: "PDF para imprimir.", kind: "archivo", coverUrl: SB + "/object/public/free-resources/x/cover.png", coverFallbackUrl: null, fileUrl: SB + "/object/public/free-resources/x/tabla.pdf", fileName: "tabla.pdf", contentType: "application/pdf", size: 300000, videoUrl: null, youtube: false, hasOwnCover: true, createdAt: iso(-4), published: false },
     ],
     media: {},
+    texts: {},
     paths: {},
   };
   S.media["inicio-curso"] = { url: SB + "/object/public/site-media/inicio-curso/1700000000000-foto.png", alt: "", updatedAt: iso(-2), size: 400000, contentType: "image/webp", hasPrevious: true };
@@ -73,6 +74,15 @@ async function instalar(page, opts) {
         return json(route, 200, { Key: u.pathname });
       }
       return route.fulfill({ status: 200, contentType: "image/png", body: PNG1 });
+    }
+    if (u.hostname === "127.0.0.1" && u.pathname === "/api/account") {
+      const action = u.searchParams.get("action");
+      if (action === "site-texts") {
+        const items = {};
+        for (const [id, t] of Object.entries(S.texts)) items[id] = { body: t.body, v: t.updatedAt };
+        return json(route, 200, { ok: true, items });
+      }
+      return json(route, 200, { ok: true, items: [] });
     }
     if (u.hostname === "127.0.0.1" && u.pathname.startsWith("/api/")) return api(route, req, u);
     return route.fulfill({ status: 200, contentType: "text/plain", body: "" });
@@ -143,6 +153,10 @@ async function instalar(page, opts) {
       case "media-save": { const prev = S.media[b.slot]; S.media[b.slot] = { url: SB + "/object/public/site-media/" + b.path, alt: b.alt || "", updatedAt: iso(0), size: b.size, contentType: b.contentType, hasPrevious: !!prev }; return { ok: true, __status: 200 }; }
       case "media-reset": delete S.media[b.slot]; return { ok: true };
       case "media-restore-previous": { const m = S.media[b.slot]; if (!m || !m.hasPrevious) return E(404, "not_found"); m.hasPrevious = false; m.updatedAt = iso(-3); return { ok: true }; }
+      case "texts": return { ok: true, items: Object.entries(S.texts).map(([id, t]) => ({ id, body: t.body, hasPrevious: !!t.previous, updatedAt: t.updatedAt })) };
+      case "texts-save": { const prev = S.texts[b.id]; S.texts[b.id] = { body: b.body, previous: prev && prev.body !== b.body ? prev.body : (prev && prev.previous) || null, updatedAt: iso(0) }; return { ok: true }; }
+      case "texts-reset": delete S.texts[b.id]; return { ok: true };
+      case "texts-restore-previous": { const t = S.texts[b.id]; if (!t || !t.previous) return E(404, "not_found"); t.body = t.previous; t.previous = null; t.updatedAt = iso(0); return { ok: true, body: t.body }; }
       default: return E(404, "not_found", "Acción no encontrada.");
     }
   }

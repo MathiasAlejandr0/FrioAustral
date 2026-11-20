@@ -4,6 +4,7 @@ const { instalar, uid } = require("./lib/mock");
 const { png } = require("./lib/png");
 const M = require("../assets/fa-panel-mapa.js");
 const SL = require("../assets/fa-slots.js");
+const TX = require("../assets/fa-textos.js");
 
 const FOTO = { name: "foto-nueva.png", mimeType: "image/png", buffer: png(2000, 1200, [200, 80, 40]) };
 const dlg = (page) => page.getByRole("dialog");
@@ -21,9 +22,9 @@ for (const pg of M.PAGINAS) {
       if (modo === "Celular") { await page.getByText("Ver mapa de la página").click(); await page.getByRole("button", { name: "Celular" }).click(); }
       await expect(page.locator(".fap-map [data-note]")).not.toHaveText("Cargando la página…", { timeout: 15000 });
       await page.waitForTimeout(600);
-      const ids = pg.ids.length;
+      const ids = pg.ids.length + TX.de(pg.slug).length;
       const pills = await page.locator(".fap-map .fap-mk").count();
-      expect(pills, "un número por zona").toBe(ids);
+      expect(pills, "un número por foto, video o texto").toBe(ids);
       /* ningún número se dibuja sobre una foto del mapa */
       const choques = await page.evaluate(() => {
         const f = document.querySelector(".fap-map iframe"); if (!f) return [];
@@ -39,6 +40,7 @@ for (const pg of M.PAGINAS) {
     const cards = page.locator(".fap-slot");
     if (pg.slug === "gratis") await expect(page.locator(".fap-rbox .fap-card, .fap-rbox .fap-skel").first()).toBeVisible();
     await expect(cards).toHaveCount(pg.ids.length);
+    if (!pg.ids.length) return;
     const r = await cards.evaluateAll((els) => els.map((e) => { const b = e.getBoundingClientRect(), t = e.querySelector(".fap-thumb"), m = t.querySelector("img,video"), cs = getComputedStyle(m); return [Math.round(b.width), Math.round(b.height), cs.objectFit, t.querySelectorAll("*").length]; }));
     expect(new Set(r.map((x) => x[0])).size, "mismo ancho").toBe(1);
     expect(new Set(r.map((x) => x[1])).size, "mismo alto").toBe(1);
