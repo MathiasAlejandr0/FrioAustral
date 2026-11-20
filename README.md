@@ -91,7 +91,7 @@ No se modificaron `D:\PROYECTOS\frio-austral\demo-cliente`, `05-premium` ni `05-
 En `equipo.html` (la misma cuenta del equipo) hay tres áreas para el contenido:
 
 - **Material de los planes** (menú «Material de los planes»): se sube un archivo (PDF, EPUB, ZIP, Word, Excel, PowerPoint, texto, imagen o video, hasta 50 MB), se le pone título, categoría (Ebook, Biblioteca, Guía, Video, Recurso) y se elige a qué planes va (uno o varios). Los suscriptores lo ven en **Mi cuenta → Material** (y en Ebooks / Biblioteca del Plan Premium) y lo descargan con un enlace firmado de 2 minutos. Se puede ocultar, editar o eliminar.
-- **Páginas del sitio** (menú «Páginas del sitio», una página a la vez con su mapa): cada espacio del catálogo `assets/fa-slots.js` (portadas, secciones, galería del taller, reels, video de bienvenida y video del curso) se puede cambiar subiendo un archivo nuevo. «Volver a la original» borra el archivo subido; «Volver a la versión anterior» recupera la última foto que había antes del último cambio. Si no hay archivo nuevo o no carga, el sitio usa el archivo de siempre (`assets/fa-medios.js`).
+- **Páginas del sitio** (menú «Páginas del sitio», una página a la vez con su mapa): cada espacio del catálogo `assets/fa-slots.js` (portadas, secciones, galería del taller, reels, video de bienvenida y video del curso) se puede cambiar subiendo un archivo nuevo. «Volver a la original» borra el archivo subido; «Volver a la versión anterior» recupera la última foto que había antes del último cambio. Si no hay archivo nuevo o no carga, el sitio usa el archivo de siempre (`assets/fa-medios.js`). En la misma página, cada texto visible (título, párrafo, botón, ítem, pie) se edita con «Editar texto»: el original es el HTML; un cambio publicado se aplica con texto plano (`assets/fa-aplicar-textos.js`). No se editan los destinos de pago ni los precios y cupos que salen de `assets/fa-config.js`. Hace falta aplicar `supabase/migrations/20261120120000_textos_del_sitio.sql` antes de guardar textos.
 - **Accesos** (menú «Accesos»): las suscripciones y su estado (activo, cancelado, vencido) que llegan solos desde el webhook de Hotmart, más los últimos avisos recibidos. Dar acceso a mano a un correo queda como respaldo.
 
 ### Cómo se controla el acceso
@@ -101,7 +101,7 @@ En `equipo.html` (la misma cuenta del equipo) hay tres áreas para el contenido:
 - Bucket **`site-media` público** (son las mismas fotos que ve cualquier visitante); solo el equipo escribe.
 - Subidas: el servidor entrega un token de subida de un solo uso para una ruta concreta; el archivo viaja directo del navegador a Storage (sin pasar por la función de Vercel, que tiene límite de 4,5 MB).
 
-Migraciones (aditivas): `20261119120000_material_planes_y_medios.sql` y `20261119121500_fa_has_plan_access_invoker.sql`.
+Migraciones (aditivas): `20261119120000_material_planes_y_medios.sql`, `20261119121500_fa_has_plan_access_invoker.sql` y `20261120120000_textos_del_sitio.sql` (textos del sitio; hay que aplicarla antes de usar «Editar texto»).
 
 ## Recursos gratis (gratis.html)
 El equipo los administra en **equipo.html → Páginas del sitio → Gratis** (secciones «Videos gratis» y «Documentos gratis») (título, descripción, foto de referencia obligatoria y tipo):
