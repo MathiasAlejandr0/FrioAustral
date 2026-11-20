@@ -220,6 +220,27 @@ test("reactivación: una compra aprobada después de cancelar vuelve a activar e
   assert.equal(db.plan_access.length, 1);
 });
 
+test("COMPLETE o un APPROVED reintentado de la misma transacción no reactivan un reembolso", async () => {
+  db.subscribers.push({ user_id: USER.id, email: USER.email.toLowerCase(), nombre: "C", plan: null, status: "sin_suscripcion" });
+  await post(purchase("PURCHASE_APPROVED", { createdAt: T0, transaction: "HP1" }));
+  await post(purchase("PURCHASE_REFUNDED", { createdAt: T0 + 1000, transaction: "HP1" }));
+  assert.equal(db.plan_access[0].status, "cancelada");
+  assert.equal((await me()).body.canAsk, false);
+
+  /* COMPLETE se fecha al terminar la garantía (días después): el filtro de eventos viejos no lo cubre. */
+  const complete = await post(purchase("PURCHASE_COMPLETE", { createdAt: T0 + 8 * 86400000, transaction: "HP1" }));
+  assert.equal(complete.status, 200);
+  assert.equal(complete.body.outcome, "ignored");
+  assert.equal(db.plan_access[0].status, "cancelada");
+  assert.equal((await me()).body.canAsk, false);
+
+  /* Reintento de APPROVED con otro event id y creation_date posterior, misma compra. */
+  const retry = await post(purchase("PURCHASE_APPROVED", { createdAt: T0 + 8 * 86400000 + 1000, transaction: "HP1" }));
+  assert.equal(retry.body.outcome, "ignored");
+  assert.equal(db.plan_access[0].status, "cancelada");
+  assert.equal((await me()).body.canAsk, false);
+});
+
 test("eventos sin efecto, sin correo o mal formados", async () => {
   assert.equal((await post(purchase("PURCHASE_BILLET_PRINTED"))).body.outcome, "ignored");
   assert.equal((await post(purchase("PURCHASE_DELAYED"))).body.outcome, "ignored");

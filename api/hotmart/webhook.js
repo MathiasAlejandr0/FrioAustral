@@ -2,6 +2,7 @@
  * POST /api/hotmart/webhook  — postback v2.0.0 de Hotmart.
  *  - Autenticación: header X-HOTMART-HOTTOK debe ser igual a la variable HOTMART_HOTTOK (401 si no coincide).
  *  - PURCHASE_APPROVED / PURCHASE_COMPLETE      → activa el plan del correo del comprador (con o sin cuenta).
+ *  - COMPLETE o un APPROVED reintentado de la misma transacción no reactivan un reembolso/contracargo.
  *  - PURCHASE_CANCELED / REFUNDED / CHARGEBACK  → desactiva el plan.
  *  - SUBSCRIPTION_CANCELLATION                  → el plan sigue hasta la fecha ya pagada (date_next_charge); si ya pasó, se desactiva.
  *  - Idempotente: el mismo evento (id) dos veces no cambia nada; un evento más antiguo que el último aplicado se ignora.
@@ -40,6 +41,15 @@ async function handleEvent(ev) {
   };
   if (ev.name) common.buyer_name = ev.name.slice(0, 120);
 
+  if (ev.action === "grant") {
+    const sameTxCanceled = existing && existing.status === "cancelada"
+      && existing.hotmart_transaction && ev.transaction
+      && String(existing.hotmart_transaction) === String(ev.transaction);
+    /* COMPLETE o un APPROVED reintentado de la misma compra no pueden deshacer un reembolso/contracargo. */
+    if (sameTxCanceled || (ev.event === "PURCHASE_COMPLETE" && existing && existing.status === "cancelada")) {
+      return log("ignored", "Esta transacción ya fue anulada; no se reactiva el plan.");
+    }
+  }
   if (ev.action === "grant" && ev.event === "PURCHASE_COMPLETE" && existing && existing.status !== "cancelada" && existing.period_end) {
     /* COMPLETE llega al terminar la garantía de una compra ya aprobada: confirma, no extiende ni reactiva. */
     await A.saveAccess(ev.email, ev.plan, common);
