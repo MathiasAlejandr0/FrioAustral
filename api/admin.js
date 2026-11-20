@@ -36,6 +36,11 @@
  *   POST /api/admin?action=media-reset     {slot}               vuelve al archivo original del sitio (borra también la versión anterior guardada)
  *   POST /api/admin?action=media-restore-previous {slot}        vuelve a la última versión subida antes de la actual (aditivo)
  *   media-save conserva la versión anterior inmediata de cada espacio (una sola); /api/admin?action=media devuelve hasPrevious.
+ * Textos visibles del sitio (tabla site_texts; el original sigue siendo el HTML):
+ *   GET  /api/admin?action=texts
+ *   POST /api/admin?action=texts-save    {id, body}     publica; si el texto es el original, borra la fila
+ *   POST /api/admin?action=texts-reset   {id}           vuelve al texto original del HTML
+ *   POST /api/admin?action=texts-restore-previous {id}  vuelve al texto publicado inmediatamente anterior
  */
 const plans = require("./_lib/plans");
 const { getUserFromToken, rest, enc, HttpError } = require("./_lib/supa");
@@ -540,11 +545,59 @@ async function mediaRestorePrevious(req, res, admin) {
   send(res, 200, { ok: true, url: ST.publicUrl(ST.BUCKET_MEDIA, prev) });
 }
 
+async function texts(req, res) {
+  const rows = await rest("site_texts?select=id,body,previous,published,updated_at&limit=1000");
+  const items = (rows || []).filter((r) => r.published !== false).map((r) => ({
+    id: r.id, body: r.body, hasPrevious: !!r.previous, updatedAt: r.updated_at,
+  }));
+  send(res, 200, { ok: true, items });
+}
+
+async function textsSave(req, res, admin) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const b = await readBody(req);
+  const t = C.checkSiteText(b.id, b.body);
+  if (t.reset) {
+    await rest(`site_texts?id=eq.${enc(t.item.id)}`, { method: "DELETE", prefer: "return=minimal" });
+    send(res, 200, { ok: true, reset: true });
+    return;
+  }
+  const prev = await rest(`site_texts?select=body,previous&id=eq.${enc(t.item.id)}`);
+  const old = prev && prev[0];
+  const previous = old && old.body && old.body !== t.text ? old.body : (old && old.previous) || null;
+  await rest("site_texts?on_conflict=id", {
+    method: "POST", prefer: "return=minimal,resolution=merge-duplicates",
+    body: [{ id: t.item.id, body: t.text, previous, published: true, updated_by: admin.id, updated_at: new Date().toISOString() }],
+  });
+  send(res, 200, { ok: true });
+}
+
+async function textsReset(req, res) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const t = C.checkSiteText((await readBody(req)).id, "x");
+  await rest(`site_texts?id=eq.${enc(t.item.id)}`, { method: "DELETE", prefer: "return=minimal" });
+  send(res, 200, { ok: true });
+}
+
+async function textsRestorePrevious(req, res, admin) {
+  if (req.method !== "POST") throw new HttpError(405, "Método no permitido.", "method");
+  const t = C.checkSiteText((await readBody(req)).id, "x");
+  const rows = await rest(`site_texts?select=body,previous&id=eq.${enc(t.item.id)}`);
+  const row = rows && rows[0];
+  if (!row || !row.previous) throw new HttpError(404, "No hay un texto anterior guardado.", "not_found");
+  await rest(`site_texts?id=eq.${enc(t.item.id)}`, {
+    method: "PATCH", prefer: "return=minimal",
+    body: { body: row.previous, previous: null, published: true, updated_by: admin.id, updated_at: new Date().toISOString() },
+  });
+  send(res, 200, { ok: true, body: row.previous });
+}
+
 const ROUTES = { list, thread, reply, whoami, summary, "mark-read": markReadAction, videos, "video-confirm": videoConfirm, "video-propose": videoPropose, "video-cancel": videoCancel,
   "access-list": accessList, "access-grant": accessGrant, "access-revoke": accessRevoke,
   materials, "material-upload-url": materialUploadUrl, "material-save": materialSave, "material-update": materialUpdate, "material-delete": materialDelete, "material-preview-url": materialPreviewUrl,
   "free-list": freeList, "free-upload-url": freeUploadUrl, "free-save": freeSave, "free-update": freeUpdate, "free-delete": freeDelete,
-  media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset, "media-restore-previous": mediaRestorePrevious };
+  media, "media-upload-url": mediaUploadUrl, "media-save": mediaSave, "media-reset": mediaReset, "media-restore-previous": mediaRestorePrevious,
+  texts, "texts-save": textsSave, "texts-reset": textsReset, "texts-restore-previous": textsRestorePrevious };
 
 module.exports = handle(async (req, res) => {
   const action = String(queryOf(req).action || "");

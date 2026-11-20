@@ -1,6 +1,7 @@
 /** Reglas del material por plan y de las fotos/videos del sitio (lógica pura, sin red). */
 const { HttpError } = require("./supa");
 const FA_SLOTS = require("../../assets/fa-slots.js");
+const FA_TEXTOS = require("../../assets/fa-textos.js");
 
 const PLAN_KEYS = ["basico", "pro", "premium"];
 const CATEGORIES = ["ebook", "biblioteca", "guia", "video", "recurso"];
@@ -93,7 +94,23 @@ function publicMaterial(m, { admin } = {}) {
   return admin ? { ...base, plans: m.plans, published: !!m.published } : base;
 }
 
+const TEXT_ID_RE = /^[a-z][a-z0-9]{0,24}\.[a-z][a-z0-9]{0,24}\.[0-9]{1,4}$/;
+const PAGO_NOMBRE = /hotmart/i;
+
+/** Texto publicado desde el panel. Vacío = volver al HTML original. Rechaza HTML y el nombre del servicio de pago. */
+function checkSiteText(id, body) {
+  const item = FA_TEXTOS.byId(String(id || ""));
+  if (!item || !TEXT_ID_RE.test(item.id)) throw new HttpError(400, "Ese texto no está en el sitio.", "bad_id");
+  const text = String(body == null ? "" : body).replace(/\r\n/g, "\n").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, "");
+  if (!text.trim()) return { item, text: "", reset: true };
+  if (/[<>]/.test(text)) throw new HttpError(400, "Solo se puede escribir texto, sin código.", "bad_html");
+  if (PAGO_NOMBRE.test(text)) throw new HttpError(400, "Ese texto no puede nombrar al servicio de pago.", "bad_text");
+  if ([...text].length > item.max || [...text].length > 2000) throw new HttpError(400, "El texto es muy largo. Acórtalo un poco.", "too_long");
+  const mismo = text.trim() === String(item.texto || "").trim();
+  return { item, text, reset: mismo };
+}
+
 module.exports = {
-  PLAN_KEYS, CATEGORIES, UUID_RE, MATERIAL_PATH_RE, SLOT_PATH_RE, MATERIAL_TYPES,
-  safeFileName, cleanText, cleanPlans, checkMaterialFile, checkSlotFile, newId, materialPath, slotPath, publicMaterial,
+  PLAN_KEYS, CATEGORIES, UUID_RE, MATERIAL_PATH_RE, SLOT_PATH_RE, MATERIAL_TYPES, TEXT_ID_RE,
+  safeFileName, cleanText, cleanPlans, checkMaterialFile, checkSlotFile, checkSiteText, newId, materialPath, slotPath, publicMaterial,
 };

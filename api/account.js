@@ -13,6 +13,7 @@
  *   POST /api/account?action=material-url  {id, inline?}                URL firmada (2 min) de un material de mi plan; con inline:true y un tipo que el navegador muestra (PDF, imagen, video, texto) se abre en pestaña en vez de descargarse
  *   GET  /api/account?action=free-resources                             (público) recursos gratis publicados (gratis.html)
  *   GET  /api/account?action=site-media                                 (público) fotos y videos del sitio cambiados desde el panel
+ *   GET  /api/account?action=site-texts                                 (público) textos publicados; si no hay fila, el HTML original sigue
  */
 const plans = require("./_lib/plans");
 const { getUserFromToken, rest, enc, adminCreateUser, HttpError } = require("./_lib/supa");
@@ -208,6 +209,19 @@ async function siteMedia(req, res) {
   res.end(JSON.stringify({ ok: true, items }));
 }
 
+/* Textos publicados (público, sin sesión). Si no hay fila o la base no responde, el sitio deja el HTML original. */
+async function siteTexts(req, res) {
+  let items = {};
+  try {
+    const rows = await rest("site_texts?select=id,body,updated_at&published=eq.true&limit=1000");
+    for (const r of rows || []) if (r && r.id && r.body) items[r.id] = { body: r.body, v: r.updated_at };
+  } catch (e) { items = {}; }
+  res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300");
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ ok: true, items }));
+}
+
 /* Recursos gratis publicados (público, sin sesión). Si la base de datos no responde, la lista queda vacía. */
 async function freeResources(req, res) {
   let items = [];
@@ -227,6 +241,7 @@ module.exports = handle(async (req, res) => {
   const action = String(queryOf(req).action || "");
   if (action === "signup") return signup(req, res);
   if (action === "site-media") return siteMedia(req, res);
+  if (action === "site-texts") return siteTexts(req, res);
   if (action === "free-resources") return freeResources(req, res);
   const fn = Object.hasOwn(ROUTES, action) ? ROUTES[action] : null;
   if (!fn) throw new HttpError(404, "Acción no encontrada.", "not_found");
